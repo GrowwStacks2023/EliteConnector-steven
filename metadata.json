@@ -1,0 +1,7 @@
+{
+  "name": "Elite Connector",
+  "description": "A premium lead marketplace for tradespeople and service providers, featuring credit-based lead acquisition, trade-specific visibility logic, and Elite Connnector integration ready architecture.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
