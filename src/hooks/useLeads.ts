@@ -9,12 +9,9 @@ export interface Lead {
   description: string;
   location: string;
   zipcode: string;
-  latitude?: number;
-  longitude?: number;
   postedDate: string;
   price: number;
   budget_min: number | null;
-  calculatedDistance?: number | null;
 }
 
 const formatDate = (dateString: string): string => {
@@ -45,15 +42,13 @@ export const useLeads = () => {
 
         const mappedLeads: Lead[] = data.map(job => ({
           id: job.id,
-          clientName: 'Client', // You can fetch client name from user table if needed
+          clientName: 'Client',
           serviceRequired: job.category,
           description: job.description,
           location: job.location,
           zipcode: job.zipcode,
-          latitude: job.latitude,
-          longitude: job.longitude,
           postedDate: formatDate(job.created_at),
-          price: 1, // You can calculate based on budget or other logic
+          price: 1,
           budget_min: job.budget_min
         }));
 
