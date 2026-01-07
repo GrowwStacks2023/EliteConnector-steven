@@ -23,6 +23,22 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, cartCount, timeLeft }) 
 
   const isProfileIncomplete = user?.role === UserRole.SERVICE_PROVIDER && !user?.isProfileComplete;
 
+  // ✅ Smart logo redirect based on user role
+  const getLogoLink = () => {
+    if (!user) return '/';
+    
+    switch (user.role) {
+      case UserRole.CLIENT:
+        return '/client-home';
+      case UserRole.SERVICE_PROVIDER:
+        return isProfileIncomplete ? '/profile' : '/dashboard';
+      case UserRole.ADMIN:
+        return '/admin';
+      default:
+        return '/';
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -30,7 +46,6 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, cartCount, timeLeft }) 
       localStorage.removeItem('userId');
       localStorage.removeItem('userEmail');
       localStorage.removeItem('userRole');
-      console.log('✅ User logged out and localStorage cleared');
       onLogout();
       navigate('/login');
     } catch (error) {
@@ -48,8 +63,8 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, cartCount, timeLeft }) 
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2.5 group">
+          {/* Logo - Smart Navigation */}
+          <Link to={getLogoLink()} className="flex items-center space-x-2.5 group">
             <div className="relative">
               <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center transform group-hover:rotate-6 transition-all duration-300 shadow-md">
                 <span className="text-white font-black text-base">EC</span>
@@ -76,6 +91,12 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, cartCount, timeLeft }) 
                   Marketplace
                 </Link>
                 <Link 
+                  to="/portfolio"
+                  className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                >
+                  Portfolio
+                </Link>
+                <Link 
                   to="/my-purchases" 
                   className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 hover:text-blue-600 hover:bg-blue-50 transition-all"
                 >
@@ -99,16 +120,22 @@ const Header: React.FC<HeaderProps> = ({ user, onLogout, cartCount, timeLeft }) 
             {user?.role === UserRole.CLIENT && (
               <>
                 <Link 
+                  to="/client-home"
+                  className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                >
+                  Home
+                </Link>
+                <Link 
                   to="/dashboard" 
                   className="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 hover:text-blue-600 hover:bg-blue-50 transition-all"
                 >
-                  My Projects
+                  My Jobs
                 </Link>
                 <Link 
                   to="/post-project" 
                   className="ml-2 px-5 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-bold hover:shadow-lg hover:scale-105 transition-all"
                 >
-                  Post Project
+                  Post Job
                 </Link>
               </>
             )}

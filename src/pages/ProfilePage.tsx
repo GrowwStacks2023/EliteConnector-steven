@@ -144,8 +144,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
 
     if (updateError) throw updateError;
 
-    console.log('✅ All profile fields updated in Supabase for user:', userId);
-
     // Create updated user object
     const updatedUser: User = {
       ...currentUser,
@@ -167,8 +165,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
 
     // Update localStorage with complete user object
     localStorage.setItem('user', JSON.stringify(updatedUser));
-
-    console.log('✅ localStorage updated with all fields:', updatedUser);
 
     onUpdateProfile(updatedUser);
 

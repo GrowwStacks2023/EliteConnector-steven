@@ -53,8 +53,6 @@ const PortfolioPage: React.FC<PortfolioPageProps> = ({ user, onUpdateProfile }) 
 
       if (error) throw error;
 
-      console.log('✅ Projects fetched from Supabase:', data);
-
       const mappedProjects: PortfolioProject[] = (data || []).map(proj => ({
         id: proj.id,
         title: proj.title,
@@ -152,8 +150,6 @@ const PortfolioPage: React.FC<PortfolioPageProps> = ({ user, onUpdateProfile }) 
 
         if (error) throw error;
 
-        console.log('✅ Project updated in Supabase');
-
         Swal.fire({
           title: 'Project Updated!',
           text: 'Your project has been successfully updated.',
@@ -222,8 +218,6 @@ const PortfolioPage: React.FC<PortfolioPageProps> = ({ user, onUpdateProfile }) 
 
       if (error) throw error;
 
-      console.log('✅ Project visibility toggled');
-
       // Update local state
       setProjects(prev => 
         prev.map(proj => 
@@ -280,8 +274,6 @@ const PortfolioPage: React.FC<PortfolioPageProps> = ({ user, onUpdateProfile }) 
           .eq('user_id', userId);
 
         if (error) throw error;
-
-        console.log('✅ Project deleted from Supabase');
 
         await fetchProjects();
 

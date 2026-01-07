@@ -25,7 +25,12 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         const isPasswordReset = urlParams.get('type') === 'recovery';
 
         if (isPasswordReset) {
-          console.log('⚠️ Password reset flow detected, skipping auto-login');
+          setChecking(false);
+          return;
+        }
+
+        // Only auto-navigate if we're actually on the login page
+        if (window.location.pathname !== '/login') {
           setChecking(false);
           return;
         }
@@ -35,14 +40,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
         if (storedUser) {
           const user: User = JSON.parse(storedUser);
-          console.log('✅ Found existing user in localStorage:', user);
 
           // Verify session with Supabase
           const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
           if (session && !sessionError) {
-            console.log('✅ Valid Supabase session found');
-
             // Update app state
             onLogin(user);
 
@@ -56,11 +58,10 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 navigate('/profile', { replace: true });
               }
             } else if (user.role === UserRole.CLIENT) {
-              navigate('/post-project', { replace: true });
+              navigate('/client-home', { replace: true }); // ✅ Changed here
             }
           } else {
             // Session expired, clear localStorage
-            console.log('⚠️ Session expired, clearing localStorage');
             localStorage.removeItem('user');
           }
         }
@@ -89,8 +90,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
 
       if (authError) throw authError;
       if (!authData.user) throw new Error('Login failed');
-
-      console.log('✅ Auth successful:', authData.user.id);
 
       // Step 2: Fetch user profile from custom 'user' table
       const { data: userData, error: userError } = await supabase
@@ -156,6 +155,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       onLogin(loggedInUser);
 
       // Step 7: Navigate based on role and profile completion
+      // Step 7: Navigate based on role and profile completion
       if (userData.role === UserRole.ADMIN) {
         navigate('/admin');
       } else if (userData.role === UserRole.SERVICE_PROVIDER) {
@@ -165,7 +165,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           navigate('/profile');
         }
       } else if (userData.role === UserRole.CLIENT) {
-        navigate('/post-project');
+        navigate('/client-home'); // ✅ Update this line
       } else {
         navigate('/');
       }

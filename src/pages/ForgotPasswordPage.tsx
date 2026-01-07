@@ -1,204 +1,173 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import Swal from 'sweetalert2';
 
-const ResetPasswordPage: React.FC = () => {
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+const ForgotPasswordPage: React.FC = () => {
+  const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [checking, setChecking] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isValidToken, setIsValidToken] = useState(false);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    localStorage.removeItem('user');
-
-    const checkResetToken = async () => {
-      try {
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = hashParams.get('access_token');
-        const refreshToken = hashParams.get('refresh_token');
-        const type = hashParams.get('type');
-        
-        console.log('🔍 Token check:', { hasAccessToken: !!accessToken, type });
-
-        if (type === 'recovery' && accessToken) {
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken || ''
-          });
-
-          if (sessionError) throw sessionError;
-
-          console.log('✅ Valid recovery session');
-          setIsValidToken(true);
-        } else {
-          throw new Error('Invalid recovery token');
-        }
-      } catch (err: any) {
-        console.error('❌ Token error:', err);
-        
-        Swal.fire({
-          title: 'Invalid Link',
-          text: 'This password reset link is invalid or has expired. Please request a new one.',
-          icon: 'error',
-          confirmButtonColor: '#4f46e5'
-        }).then(() => {
-          navigate('/forgot-password');
-        });
-      } finally {
-        setChecking(false);
-      }
-    };
-
-    checkResetToken();
-  }, [navigate]);
+  const [emailSent, setEmailSent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long.');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-
     setLoading(true);
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password
-      });
+      // ✅ STEP 1: Check if email exists in database
+      console.log('🔍 Checking if email exists:', email);
+      
+      const { data: userExists, error: checkError } = await supabase
+        .from('user')
+        .select('email')
+        .eq('email', email.toLowerCase().trim())
+        .maybeSingle();
 
-      if (updateError) {
-        console.error('❌ Password update error:', updateError);
-        
-        if (updateError.message.includes('session') || 
-            updateError.message.includes('JWT') || 
-            updateError.message.includes('expired') ||
-            updateError.code === 'session_not_found') {
-          
-          Swal.fire({
-            title: 'Link Expired',
-            text: 'Your password reset link has expired. Please request a new password reset.',
-            icon: 'error',
-            confirmButtonColor: '#4f46e5',
-            confirmButtonText: 'Request New Link'
-          }).then(() => {
-            navigate('/forgot-password');
-          });
-          return;
-        }
-        
-        throw updateError;
+      if (checkError) {
+        console.error('Error checking email:', checkError);
+        throw new Error('Unable to verify email. Please try again.');
       }
 
-      console.log('✅ Password updated');
+      if (!userExists) {
+        console.log('❌ Email not found in database');
+        
+        Swal.fire({
+          title: 'Email Not Found',
+          text: 'This email is not registered in our system. Please check your email or create a new account.',
+          icon: 'error',
+          confirmButtonColor: '#4f46e5',
+          showCancelButton: true,
+          confirmButtonText: 'Try Again',
+          cancelButtonText: 'Sign Up Instead'
+        }).then((result) => {
+          if (result.dismiss === Swal.DismissReason.cancel) {
+            window.location.href = '/register';
+          }
+        });
+        
+        setLoading(false);
+        return;
+      }
 
-      await supabase.auth.signOut();
-      localStorage.removeItem('user');
+      console.log('✅ Email exists in database, sending reset email...');
+
+      // ✅ STEP 2: Send password reset email (only if email exists)
+      const { error } = await supabase.auth.resetPasswordForEmail(email.toLowerCase().trim(), {
+        redirectTo: `${window.location.origin}/reset-password`
+      });
+
+      if (error) throw error;
+
+      console.log('✅ Password reset email sent to:', email);
+      setEmailSent(true);
 
       Swal.fire({
-        title: 'Password Updated!',
-        text: 'Your password has been successfully changed. Please log in with your new password.',
+        title: 'Email Sent!',
+        html: `
+          <p>Check your email for a password reset link.</p>
+          <p class="text-sm text-gray-500 mt-2">The link will expire in 1 hour.</p>
+          <p class="text-xs text-gray-400 mt-2">If you don't see it, check your spam folder.</p>
+        `,
         icon: 'success',
         confirmButtonColor: '#4f46e5'
-      }).then(() => {
-        navigate('/login');
       });
 
     } catch (err: any) {
-      console.error('❌ Update error:', err);
-      setError(err.message || 'Failed to reset password.');
+      console.error('❌ Reset email error:', err);
+      
+      Swal.fire({
+        title: 'Error',
+        text: err.message || 'Failed to send reset email. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#4f46e5'
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  if (checking) {
-    return (
-      <div className="min-h-[calc(100vh-80px)] bg-indigo-50/50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
-          <p className="text-gray-600 font-medium">Verifying reset link...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isValidToken) return null;
-
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-indigo-50/50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <h2 className="mt-6 text-3xl font-extrabold text-gray-900 brand-font">
-          Create New Password
-        </h2>
-        <p className="mt-2 text-sm text-gray-600">
-          Enter your new password below.
-        </p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center py-12 px-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-10">
+          <h1 className="text-4xl font-black text-gray-900 brand-font mb-3">Reset Password</h1>
+          <p className="text-gray-600 font-medium">
+            {emailSent 
+              ? 'Check your email for the reset link' 
+              : 'Enter your registered email address'}
+          </p>
+        </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-10 px-6 shadow-2xl shadow-indigo-100 sm:rounded-[2rem] sm:px-10 border border-indigo-50">
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
-              {error}
+        <div className="bg-white shadow-2xl rounded-[3rem] p-8 border border-gray-50">
+          {!emailSent ? (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-black transition-all"
+                  placeholder="your.email@example.com"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-bold shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Checking email...
+                  </span>
+                ) : (
+                  'Send Reset Link'
+                )}
+              </button>
+            </form>
+          ) : (
+            <div className="text-center py-8">
+              <div className="text-6xl mb-6">📧</div>
+              <h3 className="text-xl font-bold text-gray-900 mb-3">Check Your Email</h3>
+              <p className="text-gray-600 text-sm mb-6">
+                We've sent a password reset link to <strong className="text-indigo-600">{email}</strong>
+              </p>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+                <p className="text-amber-800 text-xs font-medium">
+                  ⏰ The link will expire in 1 hour
+                </p>
+              </div>
+              <p className="text-gray-500 text-xs mb-6">
+                Didn't receive it? Check your spam folder or try again.
+              </p>
+              <button
+                onClick={() => setEmailSent(false)}
+                className="text-indigo-600 font-bold text-sm hover:underline"
+              >
+                Try a different email
+              </button>
             </div>
           )}
 
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                New Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                required
-                minLength={6}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 appearance-none block w-full px-4 py-3 bg-white border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
-                placeholder="Minimum 6 characters"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                Confirm New Password
-              </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                required
-                minLength={6}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1 appearance-none block w-full px-4 py-3 bg-white border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
-                placeholder="Re-enter password"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex justify-center py-4 px-4 border border-transparent rounded-2xl shadow-lg shadow-indigo-100 text-lg font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          <div className="mt-6 text-center">
+            <Link 
+              to="/login" 
+              className="text-gray-500 text-sm hover:text-indigo-600 font-medium transition-colors"
             >
-              {loading ? 'Updating Password...' : 'Update Password'}
-            </button>
-          </form>
+              ← Back to Login
+            </Link>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default ResetPasswordPage;
+export default ForgotPasswordPage;

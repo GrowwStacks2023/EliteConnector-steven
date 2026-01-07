@@ -6,6 +6,4 @@ export const logout = async () => {
   
   // Clear localStorage
   localStorage.removeItem('user');
-  
-  console.log('✅ User logged out');
 };

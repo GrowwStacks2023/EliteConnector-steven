@@ -22,6 +22,7 @@ import LeadQuestionnairePage from '../eliteconnector/src/pages/LeadQuestionnaire
 import SubscriptionPage from '../eliteconnector/src/pages/SubscriptionPage';
 import CartPage from '../eliteconnector/src/pages/CartPage';
 import PortfolioPage from '../eliteconnector/src/pages/PortfolioPage';
+import ClientLandingPage from '../eliteconnector/src/pages/ClientLandingPage';
 
 // Types
 import { User, UserRole, Lead } from './types';
@@ -183,7 +184,11 @@ const App: React.FC = () => {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/portfolio" element={user ? <PortfolioPage user={user} onUpdateProfile={updateUserProfile} /> : <Navigate to="/login" />}
-/>
+            />
+            <Route
+              path="/client-home"
+              element={user?.role === UserRole.CLIENT ? <ClientLandingPage user={user} /> : <Navigate to="/login" />}
+            />
 
             <Route
               path="/dashboard"

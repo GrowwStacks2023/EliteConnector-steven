@@ -16,38 +16,42 @@ const ResetPasswordPage: React.FC = () => {
     localStorage.removeItem('user');
 
     const checkResetToken = async () => {
-      try {
-        // With BrowserRouter, tokens are now in the URL hash fragment
-        // Format: http://localhost:3000/reset-password#access_token=xxx&type=recovery
-        
+      try {        
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
         const type = hashParams.get('type');
         
-        console.log('🔍 Token check:', { hasAccessToken: !!accessToken, type });
-
-        if (type === 'recovery' && accessToken) {
-          const { error: sessionError } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken || ''
-          });
-
-          if (sessionError) throw sessionError;
-
-          console.log('✅ Valid recovery session');
-          setIsValidToken(true);
-        } else {
-          throw new Error('Invalid recovery token');
+        if (!type || type !== 'recovery') {
+          throw new Error('Not a password recovery link');
         }
+
+        if (!accessToken) {
+          throw new Error('Access token missing from URL');
+        }
+        const { data, error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken || ''
+        });
+
+        if (sessionError) {
+          throw sessionError;
+        }
+
+        if (!data.session) {
+          throw new Error('Session not established');
+        }
+
+        setIsValidToken(true);
+
       } catch (err: any) {
-        console.error('❌ Token error:', err);
         
         Swal.fire({
-          title: 'Invalid Link',
+          title: 'Invalid or Expired Link',
           text: 'This password reset link is invalid or has expired. Please request a new one.',
           icon: 'error',
-          confirmButtonColor: '#4f46e5'
+          confirmButtonColor: '#4f46e5',
+          confirmButtonText: 'Request New Link'
         }).then(() => {
           navigate('/forgot-password');
         });
@@ -76,14 +80,34 @@ const ResetPasswordPage: React.FC = () => {
     setLoading(true);
 
     try {
+
       const { error: updateError } = await supabase.auth.updateUser({
         password: password
       });
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        
+        // Check if session expired during update
+        if (updateError.message.includes('session') || 
+            updateError.message.includes('Auth session missing')) {
+          
+          Swal.fire({
+            title: 'Session Expired',
+            text: 'Your reset session has expired. Please request a new password reset link.',
+            icon: 'error',
+            confirmButtonColor: '#4f46e5',
+            confirmButtonText: 'Request New Link'
+          }).then(() => {
+            navigate('/forgot-password');
+          });
+          return;
+        }
+        
+        throw updateError;
+      }
 
-      console.log('✅ Password updated');
 
+      // Sign out to clear session
       await supabase.auth.signOut();
       localStorage.removeItem('user');
 
@@ -97,8 +121,7 @@ const ResetPasswordPage: React.FC = () => {
       });
 
     } catch (err: any) {
-      console.error('❌ Update error:', err);
-      setError(err.message || 'Failed to reset password.');
+      setError(err.message || 'Failed to reset password. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -106,7 +129,7 @@ const ResetPasswordPage: React.FC = () => {
 
   if (checking) {
     return (
-      <div className="min-h-[calc(100vh-80px)] bg-indigo-50/50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
           <p className="text-gray-600 font-medium">Verifying reset link...</p>
@@ -118,53 +141,47 @@ const ResetPasswordPage: React.FC = () => {
   if (!isValidToken) return null;
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-indigo-50/50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <h2 className="mt-6 text-3xl font-extrabold text-gray-900 brand-font">
-          Create New Password
-        </h2>
-        <p className="mt-2 text-sm text-gray-600">
-          Enter your new password below.
-        </p>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center py-12 px-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-10">
+          <h1 className="text-4xl font-black text-gray-900 brand-font mb-3">Create New Password</h1>
+          <p className="text-gray-600 font-medium">Enter your new password below</p>
+        </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-10 px-6 shadow-2xl shadow-indigo-100 sm:rounded-[2rem] sm:px-10 border border-indigo-50">
+        <div className="bg-white shadow-2xl rounded-[3rem] p-8 border border-gray-50">
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-medium">
               {error}
             </div>
           )}
 
-          <form className="space-y-6" onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
                 New Password
               </label>
               <input
-                id="password"
                 type="password"
                 required
                 minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mt-1 appearance-none block w-full px-4 py-3 bg-white border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-black transition-all"
                 placeholder="Minimum 6 characters"
               />
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
                 Confirm New Password
               </label>
               <input
-                id="confirmPassword"
                 type="password"
                 required
                 minLength={6}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1 appearance-none block w-full px-4 py-3 bg-white border border-gray-300 rounded-xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm text-black"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-black transition-all"
                 placeholder="Re-enter password"
               />
             </div>
@@ -172,9 +189,19 @@ const ResetPasswordPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center py-4 px-4 border border-transparent rounded-2xl shadow-lg shadow-indigo-100 text-lg font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-bold shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Updating Password...' : 'Update Password'}
+              {loading ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Updating Password...
+                </span>
+              ) : (
+                'Update Password'
+              )}
             </button>
           </form>
         </div>
