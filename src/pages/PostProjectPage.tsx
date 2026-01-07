@@ -17,12 +17,7 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
     location: '',
     zipcode: '',
     description: '',
-    budgetMin: '',
-    budgetMax: '',
-    budgetType: 'fixed' as 'fixed' | 'hourly' | 'negotiable',
-    urgency: 'normal' as 'urgent' | 'normal' | 'flexible',
-    expectedStartDate: '',
-    expectedDuration: ''
+    budget: ''
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,12 +45,7 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
           location: formData.location,
           zipcode: formData.zipcode,
           description: formData.description,
-          budget_min: formData.budgetMin ? parseFloat(formData.budgetMin) : null,
-          budget_max: formData.budgetMax ? parseFloat(formData.budgetMax) : null,
-          budget_type: formData.budgetType,
-          urgency: formData.urgency,
-          expected_start_date: formData.expectedStartDate || null,
-          expected_duration: formData.expectedDuration || null,
+          budget: formData.budget ? parseFloat(formData.budget) : null,
           status: 'open',
           is_active: true
         })
@@ -91,7 +81,7 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
 
         <div className="bg-white rounded-[3rem] shadow-2xl shadow-indigo-100 overflow-hidden border border-indigo-50">
           <form onSubmit={handleSubmit} className="p-10 space-y-8">
-            {/* Section 1: Project Basics */}
+            {/* Section 1: Project Details */}
             <div className="space-y-6">
               <h2 className="text-xl font-bold text-gray-900 brand-font flex items-center">
                 <span className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center mr-3 text-sm font-bold">01</span>
@@ -111,7 +101,7 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
                   />
                 </div>
 
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Service Category</label>
                   <select 
                     value={formData.category}
@@ -121,19 +111,6 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
                     {Object.values(TradeType).map(trade => (
                       <option key={trade} value={trade}>{trade}</option>
                     ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Urgency</label>
-                  <select 
-                    value={formData.urgency}
-                    onChange={e => setFormData({...formData, urgency: e.target.value as 'urgent' | 'normal' | 'flexible'})}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-black transition-all"
-                  >
-                    <option value="urgent">🔴 Urgent - Need ASAP</option>
-                    <option value="normal">🟡 Normal - Within 1-2 weeks</option>
-                    <option value="flexible">🟢 Flexible - No rush</option>
                   </select>
                 </div>
 
@@ -185,71 +162,25 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
               </div>
             </div>
 
-            {/* Section 3: Budget & Timeline */}
+            {/* Section 3: Budget */}
             <div className="space-y-6">
               <h2 className="text-xl font-bold text-gray-900 brand-font flex items-center">
                 <span className="w-8 h-8 bg-green-100 text-green-600 rounded-lg flex items-center justify-center mr-3 text-sm font-bold">03</span>
-                Budget & Timeline
+                Budget
               </h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Budget Type</label>
-                  <select 
-                    value={formData.budgetType}
-                    onChange={e => setFormData({...formData, budgetType: e.target.value as 'fixed' | 'hourly' | 'negotiable'})}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-black transition-all"
-                  >
-                    <option value="fixed">Fixed Project Budget</option>
-                    <option value="hourly">Hourly Rate</option>
-                    <option value="negotiable">Negotiable</option>
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Min Budget (£)</label>
-                    <input 
-                      type="number" 
-                      step="0.01"
-                      placeholder="100"
-                      value={formData.budgetMin}
-                      onChange={e => setFormData({...formData, budgetMin: e.target.value})}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-black transition-all" 
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Max Budget (£)</label>
-                    <input 
-                      type="number" 
-                      step="0.01"
-                      placeholder="500"
-                      value={formData.budgetMax}
-                      onChange={e => setFormData({...formData, budgetMax: e.target.value})}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-black transition-all" 
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Expected Start Date (Optional)</label>
+                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Budget (£)</label>
                   <input 
-                    type="date" 
-                    value={formData.expectedStartDate}
-                    onChange={e => setFormData({...formData, expectedStartDate: e.target.value})}
+                    type="number" 
+                    step="0.01"
+                    placeholder="500"
+                    value={formData.budget}
+                    onChange={e => setFormData({...formData, budget: e.target.value})}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-black transition-all" 
                   />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Expected Duration (Optional)</label>
-                  <input 
-                    type="text" 
-                    placeholder="e.g. 2-3 days, 1 week"
-                    value={formData.expectedDuration}
-                    onChange={e => setFormData({...formData, expectedDuration: e.target.value})}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-black transition-all" 
-                  />
+                  <p className="mt-2 text-xs text-gray-500">Enter your approximate budget for this project</p>
                 </div>
               </div>
             </div>
