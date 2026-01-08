@@ -62,8 +62,7 @@ export interface User {
   abandonedLeadIds?: string[];
   declinedLeadIds?: string[];
   projects?: Project[];
-  latitude?: number;
-  longitude?: number;
+  postcode_areas?: string[];
 }
 
 export interface Lead {

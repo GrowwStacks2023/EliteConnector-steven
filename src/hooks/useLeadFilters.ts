@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
-import { filterByTradeType } from '../utils/filters/tradeTypeFilter';
-import { filterByRadius } from '../utils/filters/radiusFilter';
+import { filterByTradeType, filterByPostcodeAreas } from '../utils/filters';
 import { Lead } from './useLeads';
-import { TradeType, User } from '../../types';
+import { User } from '../../types';
 
 export const useLeadFilters = (
   leads: Lead[],
@@ -22,11 +21,9 @@ export const useLeadFilters = (
       );
     }
 
-    // Filter 3: Radius Filter (with distance calculation)
-    filtered = filterByRadius(filtered, {
-      latitude: user.latitude,
-      longitude: user.longitude,
-      operatingRadius: user.operatingRadius
+    // Filter 3: Postcode Areas Filter
+    filtered = filterByPostcodeAreas(filtered, {
+      postcode_areas: user.postcode_areas
     });
 
     return filtered;
