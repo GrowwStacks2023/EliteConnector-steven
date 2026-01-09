@@ -12,7 +12,7 @@ interface LeadsDashboardProps {
 const LeadsDashboard: React.FC<LeadsDashboardProps> = ({ user }) => {
   const { leads, loading, error } = useLeads();
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
-  
+
   const filteredLeads = useLeadFilters(leads, user, categoryFilter);
 
   const getCategoryIcon = (category: TradeType) => {
@@ -62,7 +62,7 @@ const LeadsDashboard: React.FC<LeadsDashboardProps> = ({ user }) => {
               <div>
                 <h2 className="text-xl md:text-2xl font-extrabold text-gray-900 brand-font">Service Areas Active</h2>
                 <p className="text-gray-500 font-medium">
-                  {userPostcodeAreas.length > 0 
+                  {userPostcodeAreas.length > 0
                     ? `Showing leads in: ${userPostcodeAreas.slice(0, 5).join(', ')}${userPostcodeAreas.length > 5 ? ` +${userPostcodeAreas.length - 5} more` : ''}`
                     : 'No postcode areas selected'
                   }
@@ -98,17 +98,16 @@ const LeadsDashboard: React.FC<LeadsDashboardProps> = ({ user }) => {
           </div>
         </div>
 
-        {/* Category Filters */}
+        {/* Category Filters - Only Show User's Selected Trades */}
         <div className="flex overflow-x-auto pb-4 mb-8 space-x-3">
-          {['All', ...Object.values(TradeType)].map(category => (
+          {['All', ...user.tradeTypes].map(category => (
             <button
               key={category}
               onClick={() => setCategoryFilter(category)}
-              className={`whitespace-nowrap px-6 py-2.5 rounded-full font-bold transition-all ${
-                categoryFilter === category
+              className={`whitespace-nowrap px-6 py-2.5 rounded-full font-bold transition-all ${categoryFilter === category
                   ? 'bg-indigo-600 text-white'
                   : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-100'
-              }`}
+                }`}
             >
               {category}
             </button>
@@ -141,7 +140,7 @@ const LeadsDashboard: React.FC<LeadsDashboardProps> = ({ user }) => {
           {filteredLeads.length > 0 ? (
             filteredLeads.map(lead => {
               const postcodeArea = extractPostcodeArea(lead.zipcode);
-              
+
               return (
                 <div
                   key={lead.id}
@@ -206,7 +205,7 @@ const LeadsDashboard: React.FC<LeadsDashboardProps> = ({ user }) => {
               <div className="text-5xl mb-6">🏜️</div>
               <p className="text-gray-600 font-bold text-xl mb-2">No leads found</p>
               <p className="text-gray-400 max-w-sm mx-auto font-medium mb-8">
-                {userPostcodeAreas.length === 0 
+                {userPostcodeAreas.length === 0
                   ? 'Select postcode areas in your profile to see available leads.'
                   : 'No leads match your current filters and selected postcode areas.'
                 }
