@@ -24,6 +24,9 @@ import CartPage from '../EliteConnector-steven/src/pages/CartPage';
 import PortfolioPage from '../EliteConnector-steven/src/pages/PortfolioPage';
 import ClientLandingPage from '../EliteConnector-steven/src/pages/ClientLandingPage';
 
+// Services
+import { reserveLead, releaseLead, releaseMultipleLeads } from './src/services/reservationService';
+
 // Types
 import { User, UserRole, Lead } from './types';
 
@@ -50,6 +53,13 @@ const App: React.FC = () => {
         setCart(parsedCart);
         setTimeLeft(remaining);
       } else {
+        // Cart expired - release all leads
+        const leadIds = parsedCart.map((lead: Lead) => lead.id);
+        if (leadIds.length > 0) {
+          releaseMultipleLeads(leadIds).catch(err => 
+            console.error('Failed to release expired leads:', err)
+          );
+        }
         localStorage.removeItem('ec_cart');
         localStorage.removeItem('ec_cart_time');
       }
@@ -88,17 +98,27 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSessionExpire = () => {
+  const handleSessionExpire = async () => {
     const leadIdsInCart = cart.map(l => l.id);
     markLeadsAsAbandoned(leadIdsInCart);
+
+    // Release all leads from cart (make them available again)
+    if (leadIdsInCart.length > 0) {
+      try {
+        await releaseMultipleLeads(leadIdsInCart);
+      } catch (err) {
+        console.error('Failed to release leads on session expire:', err);
+      }
+    }
 
     setCart([]);
     setTimeLeft(null);
     localStorage.removeItem('ec_cart');
     localStorage.removeItem('ec_cart_time');
+    
     Swal.fire({
       title: 'Session Expired',
-      text: 'Your 3-minute cart reservation has ended. These leads are now re-activated for other providers and will no longer be visible to you.',
+      text: 'Your 3-minute cart reservation has ended. These leads are now available for other providers.',
       icon: 'warning',
       confirmButtonColor: '#4f46e5'
     });
@@ -109,7 +129,17 @@ const App: React.FC = () => {
     localStorage.setItem('user', JSON.stringify(userData));
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Release any leads in cart before logout
+    const leadIdsInCart = cart.map(l => l.id);
+    if (leadIdsInCart.length > 0) {
+      try {
+        await releaseMultipleLeads(leadIdsInCart);
+      } catch (err) {
+        console.error('Failed to release leads on logout:', err);
+      }
+    }
+
     setUser(null);
     setCart([]);
     setTimeLeft(null);
@@ -131,26 +161,69 @@ const App: React.FC = () => {
     localStorage.setItem('user', JSON.stringify(updatedUser));
   };
 
-  const addToCart = (lead: Lead) => {
-    setCart((prev) => {
-      if (prev.find(item => item.id === lead.id)) return prev;
+  const addToCart = async (lead: Lead) => {
+    if (!user) {
+      Swal.fire({
+        title: 'Login Required',
+        text: 'Please login to add leads to cart.',
+        icon: 'warning',
+        confirmButtonColor: '#4f46e5'
+      });
+      return;
+    }
 
-      const expiry = Date.now() + (3 * 60 * 1000);
-      const newLead = { ...lead, reservedUntil: expiry };
-      const newCart = [...prev, newLead];
+    try {
+      // Reserve lead in database (hides it from others)
+      await reserveLead(lead.id, user.id);
 
-      localStorage.setItem('ec_cart', JSON.stringify(newCart));
-      if (prev.length === 0) {
-        setTimeLeft(180);
-        localStorage.setItem('ec_cart_time', expiry.toString());
-      }
+      setCart((prev) => {
+        if (prev.find(item => item.id === lead.id)) return prev;
 
-      return newCart;
-    });
+        const expiry = Date.now() + (3 * 60 * 1000);
+        const newLead = { ...lead, reservedUntil: expiry };
+        const newCart = [...prev, newLead];
+
+        localStorage.setItem('ec_cart', JSON.stringify(newCart));
+        if (prev.length === 0) {
+          setTimeLeft(180);
+          localStorage.setItem('ec_cart_time', expiry.toString());
+        }
+
+        return newCart;
+      });
+
+      // Success notification
+      Swal.fire({
+        title: 'Added to Cart!',
+        text: 'Lead reserved for 3 minutes. Complete checkout before timer expires.',
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false,
+        toast: true,
+        position: 'top-end'
+      });
+
+    } catch (err: any) {
+      console.error('Failed to add to cart:', err);
+      Swal.fire({
+        title: 'Already Reserved',
+        text: 'This lead was just reserved by another provider. Please try another lead.',
+        icon: 'error',
+        confirmButtonColor: '#4f46e5'
+      });
+    }
   };
 
-  const removeFromCart = (leadId: string) => {
+  const removeFromCart = async (leadId: string) => {
     markLeadsAsAbandoned([leadId]);
+    
+    // Release lead reservation (make it available again)
+    try {
+      await releaseLead(leadId);
+    } catch (err) {
+      console.error('Failed to release lead:', err);
+    }
+    
     setCart((prev) => {
       const newCart = prev.filter(item => item.id !== leadId);
       localStorage.setItem('ec_cart', JSON.stringify(newCart));
@@ -162,7 +235,18 @@ const App: React.FC = () => {
     });
   };
 
-  const clearCart = () => {
+  const clearCart = async () => {
+    const leadIdsInCart = cart.map(l => l.id);
+    
+    // Release all leads (make them available again)
+    if (leadIdsInCart.length > 0) {
+      try {
+        await releaseMultipleLeads(leadIdsInCart);
+      } catch (err) {
+        console.error('Failed to release leads on clear cart:', err);
+      }
+    }
+    
     setCart([]);
     setTimeLeft(null);
     localStorage.removeItem('ec_cart');

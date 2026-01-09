@@ -1,33 +1,27 @@
 import { supabase } from '../lib/supabaseClient';
-import { TradeType } from '../../types';
 
-export interface LeadData {
-  id: string;
-  client_id: string;
-  title: string;
-  category: TradeType;
-  description: string;
-  location: string;
-  zipcode: string;
-  budget_min: number | null;
-  latitude?: number;
-  longitude?: number;
-  is_active: boolean;
-  created_at: string;
-}
-
-export const fetchActiveLeads = async (): Promise<LeadData[]> => {
+export const fetchActiveLeads = async () => {
   try {
     const { data, error } = await supabase
       .from('client_jobs')
-      .select('*')
+      .select(`
+        *,
+        client:user!client_id(
+          full_name,
+          email
+        )
+      `)
+      .eq('status', 'open')
       .eq('is_active', true)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Supabase error:', error);
+      throw error;
+    }
     return data || [];
   } catch (err) {
     console.error('❌ Error fetching leads:', err);
-    return [];
+    throw err;
   }
 };

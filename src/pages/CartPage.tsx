@@ -3,6 +3,7 @@ import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { User, Lead } from '../../types';
 import Swal from 'sweetalert2';
+import { markLeadAsPurchased } from '../services/reservationService';
 
 interface CartPageProps {
   user: User;
@@ -53,16 +54,32 @@ const CartPage: React.FC<CartPageProps> = ({ user, cart, onRemoveFromCart, onCle
     });
 
     if (result.isConfirmed) {
-      onUpdateCredits(user.credits - totalCredits);
-      onClearCart();
-      Swal.fire({
-        title: 'Success!',
-        text: "Your leads have been unlocked and added to 'My Purchases'.",
-        icon: 'success',
-        confirmButtonColor: '#4f46e5'
-      }).then(() => {
-        navigate('/my-purchases');
-      });
+      try {
+        // Mark all leads as purchased (permanently hidden)
+        for (const lead of cart) {
+          await markLeadAsPurchased(lead.id);
+        }
+
+        onUpdateCredits(user.credits - totalCredits);
+        onClearCart();
+
+        Swal.fire({
+          title: 'Success!',
+          text: "Your leads have been unlocked and added to 'My Purchases'.",
+          icon: 'success',
+          confirmButtonColor: '#4f46e5'
+        }).then(() => {
+          navigate('/my-purchases');
+        });
+      } catch (err) {
+        console.error('Checkout error:', err);
+        Swal.fire({
+          title: 'Error',
+          text: 'Failed to complete purchase. Please try again.',
+          icon: 'error',
+          confirmButtonColor: '#4f46e5'
+        });
+      }
     }
   };
 
@@ -111,11 +128,11 @@ const CartPage: React.FC<CartPageProps> = ({ user, cart, onRemoveFromCart, onCle
                           {lead.price}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <button 
+                          <button
                             onClick={() => onRemoveFromCart(lead.id)}
                             className="text-gray-400 hover:text-red-500 transition-colors p-2"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                           </button>
                         </td>
                       </tr>
@@ -130,7 +147,7 @@ const CartPage: React.FC<CartPageProps> = ({ user, cart, onRemoveFromCart, onCle
                   <div className="text-3xl font-extrabold text-indigo-600">{totalCredits} Credits</div>
                   <div className="text-xs text-gray-500 mt-1 font-medium">Available Balance: {user.credits} Credits</div>
                 </div>
-                <button 
+                <button
                   onClick={handleCheckout}
                   className="px-10 py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-indigo-100 hover:bg-indigo-700 hover:-translate-y-0.5 transition-all active:scale-[0.98]"
                 >
@@ -140,11 +157,11 @@ const CartPage: React.FC<CartPageProps> = ({ user, cart, onRemoveFromCart, onCle
             </>
           ) : (
             <div className="p-20 text-center">
-               <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl">🛒</div>
-               <p className="text-gray-400 font-bold text-xl mb-4">Your cart is empty.</p>
-               <Link to="/dashboard" className="inline-block px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all">
-                 Browse Marketplace
-               </Link>
+              <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 text-2xl">🛒</div>
+              <p className="text-gray-400 font-bold text-xl mb-4">Your cart is empty.</p>
+              <Link to="/dashboard" className="inline-block px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all">
+                Browse Marketplace
+              </Link>
             </div>
           )}
         </div>

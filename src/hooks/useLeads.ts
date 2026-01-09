@@ -1,33 +1,19 @@
 import { useState, useEffect } from 'react';
-import { fetchActiveLeads, LeadData } from '../services/leadsService';
+import { fetchActiveLeads } from '../services/leadsService';
 import { TradeType } from '../../types';
 
 export interface Lead {
   id: string;
   clientName: string;
+  clientEmail: string;
   serviceRequired: TradeType;
-  description: string;
   location: string;
   zipcode: string;
+  description: string;
+  budget_min: number | null;
   postedDate: string;
   price: number;
-  budget_min: number | null;
 }
-
-const formatDate = (dateString: string): string => {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-  if (diffDays === 1) return '1 day ago';
-  return `${diffDays} days ago`;
-};
 
 export const useLeads = () => {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -40,21 +26,26 @@ export const useLeads = () => {
         setLoading(true);
         const data = await fetchActiveLeads();
 
-        const mappedLeads: Lead[] = data.map(job => ({
+        const formattedLeads: Lead[] = data.map((job: any) => ({
           id: job.id,
-          clientName: 'Client',
-          serviceRequired: job.category,
-          description: job.description,
+          clientName: job.client?.full_name || 'Anonymous Client',
+          clientEmail: job.client?.email || '',
+          serviceRequired: job.category as TradeType,
           location: job.location,
           zipcode: job.zipcode,
-          postedDate: formatDate(job.created_at),
-          price: 1,
-          budget_min: job.budget_min
+          description: job.description,
+          budget_min: job.budget,
+          postedDate: new Date(job.created_at).toLocaleDateString('en-GB', {
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+          }),
+          price: 5 // Default credit cost per lead
         }));
 
-        setLeads(mappedLeads);
+        setLeads(formattedLeads);
       } catch (err: any) {
-        console.error('❌ Error loading leads:', err);
+        console.error('Error loading leads:', err);
         setError(err.message || 'Failed to load leads');
       } finally {
         setLoading(false);

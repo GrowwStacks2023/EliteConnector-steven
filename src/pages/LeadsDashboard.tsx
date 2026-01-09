@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { User, TradeType } from '../../types';
+import { User, TradeType, Lead } from '../../types';
 import { useLeads } from '../hooks/useLeads';
 import { useLeadFilters } from '../hooks/useLeadFilters';
 import { extractPostcodeArea } from '../utils/filters/postcodeFilter';
 
 interface LeadsDashboardProps {
   user: User;
+  cart: Lead[];
+  onAddToCart: (lead: Lead) => void;
 }
 
-const LeadsDashboard: React.FC<LeadsDashboardProps> = ({ user }) => {
+const LeadsDashboard: React.FC<LeadsDashboardProps> = ({ user, cart, onAddToCart }) => {
   const { leads, loading, error } = useLeads();
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
 
@@ -21,8 +23,6 @@ const LeadsDashboard: React.FC<LeadsDashboardProps> = ({ user }) => {
       case TradeType.ELECTRICIAN: return '⚡';
       case TradeType.CARPENTER: return '🔨';
       case TradeType.PAINTER: return '🎨';
-      // case TradeType.ROOFER: return '🏠';
-      // case TradeType.LANDSCAPER: return '🌳';
       default: return '🔧';
     }
   };
@@ -104,10 +104,11 @@ const LeadsDashboard: React.FC<LeadsDashboardProps> = ({ user }) => {
             <button
               key={category}
               onClick={() => setCategoryFilter(category)}
-              className={`whitespace-nowrap px-6 py-2.5 rounded-full font-bold transition-all ${categoryFilter === category
+              className={`whitespace-nowrap px-6 py-2.5 rounded-full font-bold transition-all ${
+                categoryFilter === category
                   ? 'bg-indigo-600 text-white'
                   : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-100'
-                }`}
+              }`}
             >
               {category}
             </button>
@@ -140,6 +141,7 @@ const LeadsDashboard: React.FC<LeadsDashboardProps> = ({ user }) => {
           {filteredLeads.length > 0 ? (
             filteredLeads.map(lead => {
               const postcodeArea = extractPostcodeArea(lead.zipcode);
+              const isInCart = cart.find(item => item.id === lead.id);
 
               return (
                 <div
@@ -175,10 +177,12 @@ const LeadsDashboard: React.FC<LeadsDashboardProps> = ({ user }) => {
                       <span className="ml-2 text-indigo-600 font-bold">• {lead.zipcode}</span>
                     </div>
 
-                    {/* Description */}
-                    <p className="text-gray-600 text-sm line-clamp-3 mb-6 font-medium leading-relaxed">
-                      {lead.description}
-                    </p>
+                    {/* Description - Hidden until purchased */}
+                    <div className="mb-6 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                      <p className="text-gray-400 text-xs italic text-center">
+                        🔒 Full project details available after purchase
+                      </p>
+                    </div>
                   </div>
 
                   {/* Footer */}
@@ -191,11 +195,23 @@ const LeadsDashboard: React.FC<LeadsDashboardProps> = ({ user }) => {
                         {lead.budget_min ? `£${lead.budget_min}` : 'TBD'}
                       </span>
                     </div>
-                    <button
-                      className="px-6 py-2.5 rounded-xl font-bold transition-all shadow-md bg-indigo-500 text-white hover:bg-indigo-600 shadow-indigo-100"
-                    >
-                      View Details
-                    </button>
+                    
+                    {/* Add to Cart / In Cart Button */}
+                    {isInCart ? (
+                      <button
+                        disabled
+                        className="px-6 py-2.5 rounded-xl font-bold transition-all shadow-md bg-gray-300 text-gray-500 cursor-not-allowed"
+                      >
+                        ✓ In Cart
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => onAddToCart(lead)}
+                        className="px-6 py-2.5 rounded-xl font-bold transition-all shadow-md bg-indigo-500 text-white hover:bg-indigo-600 shadow-indigo-100 active:scale-95"
+                      >
+                        🛒 Add to Cart
+                      </button>
+                    )}
                   </div>
                 </div>
               );
