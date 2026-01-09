@@ -1,28 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import Header from '../eliteconnector/src/components/Header';
-import Footer from '../eliteconnector/src/components/Footer';
+import Header from '../EliteConnector-steven/src/components/Header';
+import Footer from '../EliteConnector-steven/src/components/Footer';
 import Swal from 'sweetalert2';
 
 // Pages
-import HomePage from '../eliteconnector/src/pages/HomePage';
-import LoginPage from '../eliteconnector/src/pages/LoginPage';
-import RegisterPage from '../eliteconnector/src/pages/RegisterPage';
-import ForgotPasswordPage from '../eliteconnector/src/pages/ForgotPasswordPage';
+import HomePage from '../EliteConnector-steven/src/pages/HomePage';
+import LoginPage from '../EliteConnector-steven/src/pages/LoginPage';
+import RegisterPage from '../EliteConnector-steven/src/pages/RegisterPage';
+import ForgotPasswordPage from '../EliteConnector-steven/src/pages/ForgotPasswordPage';
 import ResetPasswordPage from './src/pages/ResetPasswordPage';
-import LeadsDashboard from '../eliteconnector/src/pages/LeadsDashboard';
-import ClientDashboard from '../eliteconnector/src/pages/ClientDashboard';
-import MyPurchases from '../eliteconnector/src/pages/MyPurchases';
-import ViewLead from '../eliteconnector/src/pages/ViewLead';
-import AdminDashboard from '../eliteconnector/src/pages/AdminDashboard';
-import SubmitLeadPage from '../eliteconnector/src/pages/SubmitLeadPage';
-import PostProjectPage from '../eliteconnector/src/pages/PostProjectPage';
-import ProfilePage from '../eliteconnector/src/pages/ProfilePage';
-import LeadQuestionnairePage from '../eliteconnector/src/pages/LeadQuestionnairePage';
-import SubscriptionPage from '../eliteconnector/src/pages/SubscriptionPage';
-import CartPage from '../eliteconnector/src/pages/CartPage';
-import PortfolioPage from '../eliteconnector/src/pages/PortfolioPage';
-import ClientLandingPage from '../eliteconnector/src/pages/ClientLandingPage';
+import LeadsDashboard from '../EliteConnector-steven/src/pages/LeadsDashboard';
+import ClientDashboard from '../EliteConnector-steven/src/pages/ClientDashboard';
+import MyPurchases from '../EliteConnector-steven/src/pages/MyPurchases';
+import ViewLead from '../EliteConnector-steven/src/pages/ViewLead';
+import AdminDashboard from '../EliteConnector-steven/src/pages/AdminDashboard';
+import SubmitLeadPage from '../EliteConnector-steven/src/pages/SubmitLeadPage';
+import PostProjectPage from '../EliteConnector-steven/src/pages/PostProjectPage';
+import ProfilePage from '../EliteConnector-steven/src/pages/ProfilePage';
+import LeadQuestionnairePage from '../EliteConnector-steven/src/pages/LeadQuestionnairePage';
+import SubscriptionPage from '../EliteConnector-steven/src/pages/SubscriptionPage';
+import CartPage from '../EliteConnector-steven/src/pages/CartPage';
+import PortfolioPage from '../EliteConnector-steven/src/pages/PortfolioPage';
+import ClientLandingPage from '../EliteConnector-steven/src/pages/ClientLandingPage';
 
 // Types
 import { User, UserRole, Lead } from './types';
