@@ -78,7 +78,9 @@ export interface Lead {
   drawings?: string[];
   isPremium?: boolean;
   reservedUntil?: number;
-  proposals?: Proposal[]; // New: Proposals received for this lead
+  proposals?: Proposal[];
+  timeframe?: string; 
+   images?: string[];
 }
 
 export interface Opportunity {

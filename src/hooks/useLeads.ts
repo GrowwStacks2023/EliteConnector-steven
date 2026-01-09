@@ -13,6 +13,8 @@ export interface Lead {
   budget_min: number | null;
   postedDate: string;
   price: number;
+  timeframe?: string;      // Add this
+  images?: string[];       // Add this
 }
 
 export const useLeads = () => {
@@ -40,7 +42,9 @@ export const useLeads = () => {
             month: 'short',
             year: 'numeric'
           }),
-          price: 5 // Default credit cost per lead
+          price: 5, // Default credit cost per lead
+          timeframe: job.timeframe,      // ✅ Added
+          images: job.images || []        // ✅ Added
         }));
 
         setLeads(formattedLeads);

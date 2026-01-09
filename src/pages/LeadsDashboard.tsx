@@ -11,6 +11,16 @@ interface LeadsDashboardProps {
   onAddToCart: (lead: Lead) => void;
 }
 
+// Timeframe display labels
+const TIMEFRAME_OPTIONS = [
+  { value: 'immediate', label: '🔥 Immediate', shortLabel: 'Urgent' },
+  { value: '7_days', label: '📅 Within 7 Days', shortLabel: '7 Days' },
+  { value: '10_days', label: '📆 Within 10 Days', shortLabel: '10 Days' },
+  { value: '30_days', label: '🗓️ Within 30 Days', shortLabel: '30 Days' },
+  { value: '90_days', label: '📊 Within 90 Days', shortLabel: '90 Days' },
+  { value: 'flexible', label: '⏰ Flexible', shortLabel: 'Flexible' }
+];
+
 const LeadsDashboard: React.FC<LeadsDashboardProps> = ({ user, cart, onAddToCart }) => {
   const { leads, loading, error } = useLeads();
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
@@ -104,11 +114,10 @@ const LeadsDashboard: React.FC<LeadsDashboardProps> = ({ user, cart, onAddToCart
             <button
               key={category}
               onClick={() => setCategoryFilter(category)}
-              className={`whitespace-nowrap px-6 py-2.5 rounded-full font-bold transition-all ${
-                categoryFilter === category
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-100'
-              }`}
+              className={`whitespace-nowrap px-6 py-2.5 rounded-full font-bold transition-all ${categoryFilter === category
+                ? 'bg-indigo-600 text-white'
+                : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-100'
+                }`}
             >
               {category}
             </button>
@@ -177,6 +186,34 @@ const LeadsDashboard: React.FC<LeadsDashboardProps> = ({ user, cart, onAddToCart
                       <span className="ml-2 text-indigo-600 font-bold">• {lead.zipcode}</span>
                     </div>
 
+                    {/* Timeframe Badge - SHOW THIS */}
+                    {lead.timeframe && (
+                      <div className="mb-4">
+                        <span className={`inline-block px-3 py-1.5 rounded-full text-xs font-bold ${
+                          lead.timeframe === 'immediate'
+                            ? 'bg-red-100 text-red-700 border border-red-200'
+                            : lead.timeframe === '7_days'
+                            ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                            : lead.timeframe === '10_days'
+                            ? 'bg-yellow-100 text-yellow-700 border border-yellow-200'
+                            : lead.timeframe === '30_days'
+                            ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                            : 'bg-green-100 text-green-700 border border-green-200'
+                        }`}>
+                          {TIMEFRAME_OPTIONS.find(t => t.value === lead.timeframe)?.label || '⏰ Flexible'}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Images Indicator - DON'T SHOW ACTUAL IMAGES */}
+                    {lead.images && lead.images.length > 0 && (
+                      <div className="mb-4 p-3 bg-purple-50 rounded-xl border border-purple-100">
+                        <p className="text-purple-700 text-xs font-bold text-center">
+                          📷 {lead.images.length} Photo{lead.images.length > 1 ? 's' : ''} Available After Purchase
+                        </p>
+                      </div>
+                    )}
+
                     {/* Description - Hidden until purchased */}
                     <div className="mb-6 p-3 bg-gray-50 rounded-xl border border-gray-100">
                       <p className="text-gray-400 text-xs italic text-center">
@@ -195,7 +232,7 @@ const LeadsDashboard: React.FC<LeadsDashboardProps> = ({ user, cart, onAddToCart
                         {lead.budget_min ? `£${lead.budget_min}` : 'TBD'}
                       </span>
                     </div>
-                    
+
                     {/* Add to Cart / In Cart Button */}
                     {isInCart ? (
                       <button

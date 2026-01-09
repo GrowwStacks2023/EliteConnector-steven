@@ -80,6 +80,39 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
     }));
   };
 
+  // Add this helper function near the top of the component (after UK_POSTCODE_AREAS)
+  const extractPostcodeArea = (zipcode: string): string | null => {
+    if (!zipcode || zipcode.trim() === '') return null;
+
+    // Remove spaces and convert to uppercase
+    const cleaned = zipcode.trim().toUpperCase().replace(/\s+/g, '');
+
+    // UK postcode area is 1-2 letters at the start
+    // Examples: SW1A 1AA -> SW, E1 4NS -> E, AB10 1AB -> AB
+    const match = cleaned.match(/^([A-Z]{1,2})/);
+
+    if (match && UK_POSTCODE_AREAS.includes(match[1])) {
+      return match[1];
+    }
+
+    return null;
+  };
+
+  // Update the handleChange for zipcode
+  const handleZipcodeChange = (value: string) => {
+    setFormData(prev => ({ ...prev, zipcode: value }));
+
+    // Auto-select postcode area
+    const extractedArea = extractPostcodeArea(value);
+
+    if (extractedArea && !formData.postcode_areas.includes(extractedArea)) {
+      setFormData(prev => ({
+        ...prev,
+        postcode_areas: [...prev.postcode_areas, extractedArea]
+      }));
+    }
+  };
+
   const handleSelectAllPostcodes = () => {
     setFormData(prev => ({
       ...prev,
@@ -386,7 +419,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
         {/* Navigation Header */}
         <div className="mb-10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <h1 className="text-3xl font-extrabold text-gray-900 brand-font">Profile & Verification</h1>
-          
+
           <div className="flex gap-3">
             <Link
               to="/portfolio"
@@ -394,7 +427,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
             >
               📸 My Portfolio
             </Link>
-            
+
             {user.isProfileComplete && (
               <button
                 onClick={() => navigate('/dashboard')}
@@ -508,15 +541,22 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
                           ></textarea>
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Zipcode / Postcode</label>
+                          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+                            Zipcode / Postcode
+                          </label>
                           <input
                             type="text"
                             required
                             value={formData.zipcode}
-                            onChange={e => setFormData({ ...formData, zipcode: e.target.value })}
+                            onChange={e => handleZipcodeChange(e.target.value)}
                             className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-black font-medium transition-all"
                             placeholder="SW1A 1AA"
                           />
+                          {extractPostcodeArea(formData.zipcode) && (
+                            <p className="text-xs text-green-600 mt-2 font-medium">
+                              ✓ Auto-selected area: <span className="font-bold">{extractPostcodeArea(formData.zipcode)}</span>
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -625,22 +665,32 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
                     </div>
 
                     {/* Postcode Grid */}
-                    <div className="max-h-96 overflow-y-auto bg-gray-50 rounded-2xl p-6 border border-gray-200">
+                    {/* Postcode Grid */}
+                    <div className="max-h-96 overflow-y-auto bg-gray-50 rounded-2xl p-6 border border-gray-200" id="postcode-grid">
                       <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
-                        {UK_POSTCODE_AREAS.map(area => (
-                          <button
-                            key={area}
-                            type="button"
-                            onClick={() => handleTogglePostcodeArea(area)}
-                            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                              formData.postcode_areas.includes(area)
-                                ? 'bg-indigo-600 text-white shadow-md'
-                                : 'bg-white text-gray-600 border border-gray-200 hover:border-indigo-300'
-                            }`}
-                          >
-                            {area}
-                          </button>
-                        ))}
+                        {UK_POSTCODE_AREAS.map(area => {
+                          const isSelected = formData.postcode_areas.includes(area);
+                          const isAutoSelected = extractPostcodeArea(formData.zipcode) === area;
+
+                          return (
+                            <button
+                              key={area}
+                              type="button"
+                              onClick={() => handleTogglePostcodeArea(area)}
+                              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${isSelected
+                                  ? isAutoSelected
+                                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg ring-2 ring-purple-400 ring-offset-2 animate-pulse'
+                                    : 'bg-indigo-600 text-white shadow-md'
+                                  : 'bg-white text-gray-600 border border-gray-200 hover:border-indigo-300'
+                                }`}
+                            >
+                              {area}
+                              {isAutoSelected && isSelected && (
+                                <span className="ml-1">✨</span>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 
