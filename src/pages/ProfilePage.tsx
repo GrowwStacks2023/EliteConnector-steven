@@ -3,6 +3,7 @@ import { User, UserRole, TradeType, Project } from '../../types';
 import Swal from 'sweetalert2';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import { syncContactToGHL } from '../services/ghlService';
 
 interface ProfilePageProps {
   user: User;
@@ -80,6 +81,27 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
     }));
   };
 
+  const extractPostcodeArea = (zipcode: string): string | null => {
+    if (!zipcode || zipcode.trim() === '') return null;
+    const cleaned = zipcode.trim().toUpperCase().replace(/\s+/g, '');
+    const match = cleaned.match(/^([A-Z]{1,2})/);
+    if (match && UK_POSTCODE_AREAS.includes(match[1])) {
+      return match[1];
+    }
+    return null;
+  };
+
+  const handleZipcodeChange = (value: string) => {
+    setFormData(prev => ({ ...prev, zipcode: value }));
+    const extractedArea = extractPostcodeArea(value);
+    if (extractedArea && !formData.postcode_areas.includes(extractedArea)) {
+      setFormData(prev => ({
+        ...prev,
+        postcode_areas: [...prev.postcode_areas, extractedArea]
+      }));
+    }
+  };
+
   const handleSelectAllPostcodes = () => {
     setFormData(prev => ({
       ...prev,
@@ -97,7 +119,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
   const handleSaveProfile = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
-    // Get user from localStorage
     const storedUser = localStorage.getItem('user');
     if (!storedUser) {
       Swal.fire('Error', 'User session not found. Please log in again.', 'error');
@@ -108,6 +129,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
     const currentUser = JSON.parse(storedUser);
     const userId = currentUser.id;
 
+    // Admin/Client handling
     if (user.role === UserRole.ADMIN || user.role === UserRole.CLIENT) {
       if (formData.password && formData.password !== formData.confirmPassword) {
         Swal.fire('Error', 'Passwords do not match', 'error');
@@ -115,7 +137,16 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
       }
 
       try {
-        // Update Supabase for Admin/Client
+        // Show loading
+        Swal.fire({
+          title: 'Saving Profile...',
+          text: 'Please wait',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+
         const { error: updateError } = await supabase
           .from('user')
           .update({
@@ -152,7 +183,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
       return;
     }
 
-    // Check all mandatory fields for Service Provider
+    // Service Provider - Check completion
     const isNowComplete = !!(
       formData.fullName.trim() !== '' &&
       formData.phone.trim() !== '' &&
@@ -168,7 +199,17 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
     );
 
     try {
-      // Update Supabase database with ALL profile fields
+      // Show loading
+      Swal.fire({
+        title: 'Saving Profile...',
+        text: 'Please wait while we update your information',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      // Update Supabase
       const { error: updateError } = await supabase
         .from('user')
         .update({
@@ -209,28 +250,42 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
         isProfileComplete: isNowComplete
       };
 
-      // Update localStorage with complete user object
+      // Update localStorage
       localStorage.setItem('user', JSON.stringify(updatedUser));
       onUpdateProfile(updatedUser);
 
-      if (e) {
-        if (isNowComplete) {
-          Swal.fire({
-            title: 'Verification Successful!',
-            text: 'Your professional credentials have been updated. Your account is now fully verified.',
-            icon: 'success',
-            confirmButtonColor: '#4f46e5'
-          }).then(() => {
-            navigate('/dashboard');
-          });
-        } else {
-          Swal.fire({
-            title: 'Compliance Incomplete',
-            text: 'Profile saved. However, to access the Lead Marketplace, you must fill in ALL fields including service areas.',
-            icon: 'warning',
-            confirmButtonColor: '#4f46e5'
+      // 🔥 SYNC TO GHL IF PROFILE IS COMPLETE (Silent background process)
+      if (isNowComplete && e) {
+        // Check session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (!sessionError && session) {
+          // Sync silently in background - don't show errors to user
+          syncContactToGHL(updatedUser).catch(err => {
+            console.error('Background GHL sync failed:', err);
           });
         }
+
+        // Show success message to user
+        Swal.fire({
+          title: 'Profile Complete!',
+          text: 'Your profile has been successfully completed.',
+          icon: 'success',
+          confirmButtonColor: '#4f46e5'
+        }).then(() => {
+          navigate('/dashboard');
+        });
+      } else if (!isNowComplete && e) {
+        Swal.close();
+        Swal.fire({
+          title: 'Profile Saved',
+          text: 'Profile saved. Please complete all required fields to access the Lead Marketplace.',
+          icon: 'info',
+          confirmButtonColor: '#4f46e5'
+        });
+      } else {
+        // Auto-save without form submission
+        Swal.close();
       }
     } catch (err: any) {
       console.error('Profile update error:', err);
@@ -238,7 +293,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
     }
   };
 
-  // Admin & Client simplified view (unchanged)
+  // Admin & Client simplified view
   if (user.role === UserRole.ADMIN || user.role === UserRole.CLIENT) {
     return (
       <div className="bg-gray-50 min-h-screen py-16 px-4">
@@ -385,8 +440,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
 
         {/* Navigation Header */}
         <div className="mb-10 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <h1 className="text-3xl font-extrabold text-gray-900 brand-font">Profile & Verification</h1>
-          
+          <h1 className="text-3xl font-extrabold text-gray-900 brand-font">Professional Profile</h1>
+
           <div className="flex gap-3">
             <Link
               to="/portfolio"
@@ -394,7 +449,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
             >
               📸 My Portfolio
             </Link>
-            
+
             {user.isProfileComplete && (
               <button
                 onClick={() => navigate('/dashboard')}
@@ -414,8 +469,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
                   {formData.fullName.charAt(0) || user.fullName.charAt(0)}
                 </div>
                 {!user.isProfileComplete && (
-                  <div className="absolute top-6 right-6 px-4 py-2 bg-rose-600 text-white text-[10px] font-bold rounded-full animate-pulse shadow-lg uppercase tracking-widest">
-                    Incomplete Verification
+                  <div className="absolute top-6 right-6 px-4 py-2 bg-amber-500 text-white text-[10px] font-bold rounded-full shadow-lg uppercase tracking-widest">
+                    Profile Completion Pending
                   </div>
                 )}
               </div>
@@ -425,7 +480,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
                   {/* Section 1: Business Identity */}
                   <div className="space-y-6">
                     <h2 className="text-xl font-bold text-gray-900 brand-font flex items-center">
-                      <span className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center mr-3 text-sm font-bold">01</span>
+                      <span className="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center mr-3 text-sm font-bold" aria-hidden>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" role="img" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11a4 4 0 10-8 0M12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </span>
                       Business Identity
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -508,15 +567,22 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
                           ></textarea>
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Zipcode / Postcode</label>
+                          <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+                            Zipcode / Postcode
+                          </label>
                           <input
                             type="text"
                             required
                             value={formData.zipcode}
-                            onChange={e => setFormData({ ...formData, zipcode: e.target.value })}
+                            onChange={e => handleZipcodeChange(e.target.value)}
                             className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-black font-medium transition-all"
                             placeholder="SW1A 1AA"
                           />
+                          {extractPostcodeArea(formData.zipcode) && (
+                            <p className="text-xs text-green-600 mt-2 font-medium">
+                              ✓ Auto-selected area: <span className="font-bold">{extractPostcodeArea(formData.zipcode)}</span>
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -525,7 +591,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
                   {/* Trade Selection Section */}
                   <div className="space-y-6">
                     <h2 className="text-xl font-bold text-gray-900 brand-font flex items-center">
-                      <span className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center mr-3 text-sm font-bold">02</span>
+                      <span className="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center mr-3 text-sm font-bold" aria-hidden>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" role="img" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.24 7.76l-4-4M14.83 8.17l-9.06 9.06a3 3 0 01-1.88.88L3 19l.89-1.89a3 3 0 01.88-1.88l9.06-9.06" />
+                        </svg>
+                      </span>
                       Trade Categories
                     </h2>
                     <p className="text-sm text-gray-500 mb-4">Select all services you provide. You will only see leads matching these categories.</p>
@@ -549,7 +619,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
                   {/* Section 2: Professional Verification */}
                   <div className="space-y-6">
                     <h2 className="text-xl font-bold text-gray-900 brand-font flex items-center">
-                      <span className="w-8 h-8 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center mr-3 text-sm font-bold">03</span>
+                      <span className="w-8 h-8 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center mr-3 text-sm font-bold" aria-hidden>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" role="img" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 2l7 4v6c0 5-7 10-7 10S5 17 5 12V6l7-4z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4" />
+                        </svg>
+                      </span>
                       Compliance & Credentials
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -594,7 +669,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
                   {/* Section 3: Service Coverage - Postcode Areas */}
                   <div className="space-y-6">
                     <h2 className="text-xl font-bold text-gray-900 brand-font flex items-center">
-                      <span className="w-8 h-8 bg-green-100 text-green-600 rounded-lg flex items-center justify-center mr-3 text-sm font-bold">04</span>
+                      <span className="w-8 h-8 bg-green-100 text-green-600 rounded-lg flex items-center justify-center mr-3 text-sm font-bold" aria-hidden>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" role="img" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 11a3 3 0 100-6 3 3 0 000 6z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 22s8-6 8-11a8 8 0 10-16 0c0 5 8 11 8 11z" />
+                        </svg>
+                      </span>
                       Service Coverage Areas
                     </h2>
                     <p className="text-sm text-gray-500 mb-4">
@@ -625,22 +705,31 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
                     </div>
 
                     {/* Postcode Grid */}
-                    <div className="max-h-96 overflow-y-auto bg-gray-50 rounded-2xl p-6 border border-gray-200">
+                    <div className="max-h-96 overflow-y-auto bg-gray-50 rounded-2xl p-6 border border-gray-200" id="postcode-grid">
                       <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-2">
-                        {UK_POSTCODE_AREAS.map(area => (
-                          <button
-                            key={area}
-                            type="button"
-                            onClick={() => handleTogglePostcodeArea(area)}
-                            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                              formData.postcode_areas.includes(area)
-                                ? 'bg-indigo-600 text-white shadow-md'
-                                : 'bg-white text-gray-600 border border-gray-200 hover:border-indigo-300'
-                            }`}
-                          >
-                            {area}
-                          </button>
-                        ))}
+                        {UK_POSTCODE_AREAS.map(area => {
+                          const isSelected = formData.postcode_areas.includes(area);
+                          const isAutoSelected = extractPostcodeArea(formData.zipcode) === area;
+
+                          return (
+                            <button
+                              key={area}
+                              type="button"
+                              onClick={() => handleTogglePostcodeArea(area)}
+                              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all ${isSelected
+                                  ? isAutoSelected
+                                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg ring-2 ring-purple-400 ring-offset-2 animate-pulse'
+                                    : 'bg-indigo-600 text-white shadow-md'
+                                  : 'bg-white text-gray-600 border border-gray-200 hover:border-indigo-300'
+                                }`}
+                            >
+                              {area}
+                              {isAutoSelected && isSelected && (
+                                <span className="ml-1">✨</span>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -659,16 +748,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ user, onUpdateProfile }) => {
                       type="submit"
                       className="flex-grow py-5 bg-indigo-600 text-white rounded-2xl font-bold text-xl shadow-2xl shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-[0.98]"
                     >
-                      Save Profile & Verification
+                      Save Profile
                     </button>
                   </div>
                 </form>
               </div>
             </>
           ) : (
-            // Portfolio tab (unchanged - keeping it as is)
             <div className="p-8 sm:p-12 min-h-[600px] flex flex-col">
-              {/* ... portfolio content remains unchanged ... */}
+              {/* Portfolio content remains unchanged */}
             </div>
           )}
         </div>
