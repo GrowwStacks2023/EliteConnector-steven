@@ -8,9 +8,20 @@ export enum UserRole {
 export enum TradeType {
   PLUMBER = 'Plumber',
   ELECTRICIAN = 'Electrician',
-  PLASTERER = 'Plasterer',
   CARPENTER = 'Carpenter',
-  PAINTER = 'Painter'
+  PAINTER = 'Painter',
+  BUILDER = 'Builder',
+  ROOFER = 'Roofer',
+  GARDENER = 'Gardener',
+  CLEANER = 'Cleaner',
+  HANDYMAN = 'Handyman',
+  TILER = 'Tiler',
+  PLASTERER = 'Plasterer',
+  FLOORING = 'Flooring',
+  BATHROOM = 'Bathroom Fitting',
+  HEATING = 'Heating / Gas Work',
+  WINDOWS = 'Windows',
+  OTHER = 'Other'
 }
 
 export enum SubscriptionTier {
@@ -79,8 +90,8 @@ export interface Lead {
   isPremium?: boolean;
   reservedUntil?: number;
   proposals?: Proposal[];
-  timeframe?: string; 
-   images?: string[];
+  timeframe?: string;
+  images?: string[];
 }
 
 export interface Opportunity {

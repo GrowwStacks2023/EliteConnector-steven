@@ -8,6 +8,26 @@ interface PostProjectPageProps {
   user: User;
 }
 
+// Trade type icons mapping
+const TRADE_ICONS: Record<TradeType, { icon: string; label: string }> = {
+  [TradeType.PLUMBER]: { icon: '🚰', label: 'Plumbing' },
+  [TradeType.ELECTRICIAN]: { icon: '💡', label: 'Electrics' },
+  [TradeType.CARPENTER]: { icon: '🔨', label: 'Carpentry / Joinery' },
+  [TradeType.PAINTER]: { icon: '🎨', label: 'Painting & Decorating' },
+  [TradeType.BUILDER]: { icon: '🧱', label: 'Building' },
+  [TradeType.ROOFER]: { icon: '🏠', label: 'Roofing' },
+  [TradeType.GARDENER]: { icon: '🌿', label: 'Gardening & Landscaping' },
+  [TradeType.CLEANER]: { icon: '🧹', label: 'Cleaning' },
+  [TradeType.HANDYMAN]: { icon: '🔧', label: 'Handywork' },
+  [TradeType.TILER]: { icon: '◼️', label: 'Tiling' },
+  [TradeType.PLASTERER]: { icon: '🔨', label: 'Plastering & Rendering' },
+  [TradeType.FLOORING]: { icon: '📐', label: 'Flooring' },
+  [TradeType.BATHROOM]: { icon: '🛁', label: 'Bathroom Fitting' },
+  [TradeType.HEATING]: { icon: '🔥', label: 'Heating / Gas Work' },
+  [TradeType.WINDOWS]: { icon: '🪟', label: 'Windows' },
+  [TradeType.OTHER]: { icon: '⚙️', label: 'Other' },
+};
+
 const TIMEFRAME_OPTIONS = [
   { value: 'immediate', label: '🔥 Immediate / Urgent', description: 'Need help today or tomorrow' },
   { value: '7_days', label: '📅 Within 7 Days', description: 'Within the next week' },
@@ -19,6 +39,7 @@ const TIMEFRAME_OPTIONS = [
 
 const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
   const navigate = useNavigate();
+  const [step, setStep] = useState<'select-trade' | 'form'>('select-trade');
   const [loading, setLoading] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [formData, setFormData] = useState({
@@ -29,14 +50,18 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
     description: '',
     budget: '',
     timeframe: 'flexible',
-    images: [] as string[] // Store image URLs
+    images: [] as string[]
   });
+
+  const handleTradeSelect = (trade: TradeType) => {
+    setFormData({ ...formData, category: trade });
+    setStep('form');
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    // Limit to 5 images
     if (formData.images.length + files.length > 5) {
       Swal.fire('Too Many Images', 'You can upload a maximum of 5 images.', 'warning');
       return;
@@ -50,23 +75,19 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
 
-        // Validate file type
         if (!file.type.startsWith('image/')) {
           Swal.fire('Invalid File', `${file.name} is not an image file.`, 'error');
           continue;
         }
 
-        // Validate file size (max 5MB)
         if (file.size > 5 * 1024 * 1024) {
           Swal.fire('File Too Large', `${file.name} exceeds 5MB limit.`, 'error');
           continue;
         }
 
-        // Generate unique filename
         const fileExt = file.name.split('.').pop();
         const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-        // Upload to Supabase Storage
         const { data, error } = await supabase.storage
           .from('job-images')
           .upload(fileName, file, {
@@ -76,7 +97,6 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
 
         if (error) throw error;
 
-        // Get public URL
         const { data: { publicUrl } } = supabase.storage
           .from('job-images')
           .getPublicUrl(fileName);
@@ -119,7 +139,6 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
     setLoading(true);
 
     try {
-      // Get user from localStorage
       const storedUser = localStorage.getItem('user');
       if (!storedUser) {
         Swal.fire('Error', 'Please log in again.', 'error');
@@ -129,7 +148,6 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
 
       const currentUser = JSON.parse(storedUser);
 
-      // Insert job into Supabase
       const { data, error } = await supabase
         .from('client_jobs')
         .insert({
@@ -170,10 +188,46 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
     }
   };
 
+  // Trade Selection Step
+  if (step === 'select-trade') {
+    return (
+      <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 min-h-screen py-16 px-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl font-extrabold text-gray-900 brand-font mb-4">What type of work do you need doing?</h1>
+            <p className="text-gray-600 font-medium">Select the service you need</p>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {Object.entries(TRADE_ICONS).map(([trade, { icon, label }]) => (
+              <button
+                key={trade}
+                onClick={() => handleTradeSelect(trade as TradeType)}
+                className="bg-white p-6 rounded-2xl border-2 border-gray-100 hover:border-indigo-500 hover:shadow-xl transition-all flex flex-col items-center justify-center gap-3 group"
+              >
+                <span className="text-5xl group-hover:scale-110 transition-transform">{icon}</span>
+                <span className="font-bold text-gray-800 text-center text-sm">{label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  
+
+  // Form Step (existing form code)
   return (
     <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 min-h-screen py-16 px-4">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12">
+          <button
+            onClick={() => setStep('select-trade')}
+            className="mb-4 text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-2 mx-auto"
+          >
+            ← Back to Category Selection
+          </button>
           <h1 className="text-4xl font-extrabold text-gray-900 brand-font mb-4">Post Your Project</h1>
           <p className="text-gray-600 font-medium">Tell us what you need, and we'll connect you with verified professionals.</p>
         </div>
@@ -207,8 +261,8 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
                     onChange={e => setFormData({...formData, category: e.target.value as TradeType})}
                     className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500 text-black transition-all"
                   >
-                    {Object.values(TradeType).map(trade => (
-                      <option key={trade} value={trade}>{trade}</option>
+                    {Object.entries(TRADE_ICONS).map(([trade, { label }]) => (
+                      <option key={trade} value={trade}>{label}</option>
                     ))}
                   </select>
                 </div>
@@ -225,7 +279,6 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
                   ></textarea>
                 </div>
 
-                {/* Timeframe Dropdown */}
                 <div className="md:col-span-2">
                   <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Project Timeline</label>
                   <select
@@ -277,7 +330,7 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
               </div>
             </div>
 
-            {/* Section 3: Images (Optional) */}
+            {/* Section 3: Images */}
             <div className="space-y-6">
               <h2 className="text-xl font-bold text-gray-900 brand-font flex items-center">
                 <span className="w-8 h-8 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center mr-3 text-sm font-bold">03</span>
@@ -311,7 +364,6 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
                   </p>
                 </div>
 
-                {/* Image Preview Grid */}
                 {formData.images.length > 0 && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
                     {formData.images.map((imageUrl, index) => (
