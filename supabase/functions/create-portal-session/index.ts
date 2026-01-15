@@ -1,32 +1,64 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import Stripe from "https://esm.sh/stripe@14.5.0?target=deno";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
-// Setup type definitions for built-in Supabase Runtime APIs
-import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") as string, {
+  apiVersion: "2023-10-16",
+  httpClient: Stripe.createFetchHttpClient(),
+});
 
-console.log("Hello from Functions!")
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
-Deno.serve(async (req) => {
-  const { name } = await req.json()
-  const data = {
-    message: `Hello ${name}!`,
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
-  return new Response(
-    JSON.stringify(data),
-    { headers: { "Content-Type": "application/json" } },
-  )
-})
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      {
+        global: {
+          headers: { Authorization: req.headers.get("Authorization")! },
+        },
+      }
+    );
 
-/* To invoke locally:
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
+    if (!user) {
+      throw new Error("No user found");
+    }
 
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/create-portal-session' \
-    --header 'Authorization: Bearer eyJhbGciOiJFUzI1NiIsImtpZCI6ImI4MTI2OWYxLTIxZDgtNGYyZS1iNzE5LWMyMjQwYTg0MGQ5MCIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjIwODMyMTg3OTR9.I52l0dxfZTuCN-lsVPDXwlfZpyuaSK64P_GI4wPunVUs748p6mnWdicGcc3CkSvDnPHkGrk7Qb1NcRvcL8MNkQ' \
-    --header 'Content-Type: application/json' \
-    --data '{"name":"Functions"}'
+    const { data: customer } = await supabase
+      .from("customers")
+      .select("stripe_customer_id")
+      .eq("id", user.id)
+      .single();
 
-*/
+    if (!customer?.stripe_customer_id) {
+      throw new Error("No customer found");
+    }
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customer.stripe_customer_id,
+      return_url: `${req.headers.get("origin")}/dashboard`,
+    });
+
+    return new Response(JSON.stringify({ url: session.url }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400,
+    });
+  }
+});
