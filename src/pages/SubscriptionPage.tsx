@@ -3,38 +3,68 @@ import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { SubscriptionTier } from '../../types';
 import Swal from 'sweetalert2';
+import { supabase } from '../lib/supabaseClient';
 
 const SubscriptionPage: React.FC = () => {
   const navigate = useNavigate();
 
-  const handleSubscribe = (tier: string) => {
-    Swal.fire({
-      title: `Confirm ${tier} Subscription`,
-      text: `Would you like to upgrade your account to the ${tier} plan?`,
-      icon: 'info',
-      showCancelButton: true,
-      confirmButtonColor: '#4f46e5',
-      cancelButtonColor: '#9ca3af',
-      confirmButtonText: 'Yes, Upgrade!',
-      cancelButtonText: 'Not now'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        Swal.fire({
-          title: 'Success!',
-          text: `You are now subscribed to ${tier}. Your limits have been updated.`,
-          icon: 'success',
-          confirmButtonColor: '#4f46e5'
-        }).then(() => {
-          navigate('/dashboard');
-        });
+const handleSubscribe = async (tier: string) => {
+  try {
+    // 1️⃣ Check logged-in user
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user) {
+      Swal.fire({
+        title: 'Login required',
+        text: 'Please log in to subscribe',
+        icon: 'warning',
+        confirmButtonColor: '#4f46e5'
+      });
+      return;
+    }
+
+    // 2️⃣ Map tiers → Stripe prices
+    const priceIds = {
+      [SubscriptionTier.TIER1]: 'price_1SpE2028nEEm4LkcaW2SYnlL',
+      [SubscriptionTier.TIER2]: 'price_1SpE2028nEEm4LkcshR1lzsB',
+      [SubscriptionTier.TIER3]: 'price_1SpE1z28nEEm4LkcCdN7xBrI',
+    };
+
+    const priceId = priceIds[tier as SubscriptionTier];
+    if (!priceId) throw new Error('Invalid tier selected');
+
+    // 3️⃣ Call Edge Function WITH AUTH
+    const { data, error } = await supabase.functions.invoke(
+      'create-checkout-session',
+      {
+        body: { priceId },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
       }
+    );
+
+    if (error) throw error;
+
+    if (data?.url) {
+      window.location.href = data.url;
+    }
+  } catch (error: any) {
+    Swal.fire({
+      title: 'Error',
+      text: error.message || 'Failed to create checkout session',
+      icon: 'error',
+      confirmButtonColor: '#4f46e5'
     });
-  };
+  }
+};
 
   const tiers = [
     {
       name: SubscriptionTier.TIER1,
-      price: "£49",
+      price: "862.37",
       period: "/month",
       description: "Perfect for sole traders starting their journey.",
       features: [
@@ -50,7 +80,7 @@ const SubscriptionPage: React.FC = () => {
     },
     {
       name: SubscriptionTier.TIER2,
-      price: "£99",
+      price: "2388",
       period: "/month",
       description: "The professional choice for growing businesses.",
       features: [
@@ -67,7 +97,7 @@ const SubscriptionPage: React.FC = () => {
     },
     {
       name: SubscriptionTier.TIER3,
-      price: "£199",
+      price: "199",
       period: "/month",
       description: "Scale your empire with unlimited possibilities.",
       features: [

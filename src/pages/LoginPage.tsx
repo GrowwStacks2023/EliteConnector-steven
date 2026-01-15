@@ -113,6 +113,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
       // Step 4: Create complete User object
       const loggedInUser: User = {
         id: userData.id,
+        postcode_areas: userData.postcode_areas || [],
         email: userData.email,
         fullName: userData.full_name || email.split('@')[0],
         role: userData.role as UserRole,
@@ -142,6 +143,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
           userData.insurance_details &&
           userData.qualifications &&
           userData.operating_radius &&
+          userData.postcode_areas && userData.postcode_areas.length > 0 &&  // ✅ ADD THIS
           tradeTypes.length > 0
         ),
 
