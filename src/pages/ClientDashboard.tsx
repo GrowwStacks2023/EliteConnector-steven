@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { User, TradeType } from '../../types';
 import { supabase } from '../lib/supabaseClient';
 import Swal from 'sweetalert2';
+import PurchasedLeadCard from '../components/PurchasedLeadCard';
+import { fetchClientJobPurchases, LeadPurchase } from '../services/purchaseService';
 
 interface ClientDashboardProps {
   user: User;
@@ -23,7 +25,9 @@ interface ClientProject {
 
 const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
   const [projects, setProjects] = useState<ClientProject[]>([]);
+  const [purchasesByJob, setPurchasesByJob] = useState<Map<string, LeadPurchase[]>>(new Map());
   const [loading, setLoading] = useState(true);
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchProjects();
@@ -67,12 +71,26 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
 
       setProjects(mappedProjects);
 
+      // Fetch all purchases for this client's jobs
+      const purchases = await fetchClientJobPurchases(currentUser.id);
+      setPurchasesByJob(purchases);
+
     } catch (err: any) {
       console.error('❌ Error fetching projects:', err);
       Swal.fire('Error', 'Failed to load projects', 'error');
     } finally {
       setLoading(false);
     }
+  };
+
+  const toggleProjectExpansion = (projectId: string) => {
+    const newExpanded = new Set(expandedProjects);
+    if (newExpanded.has(projectId)) {
+      newExpanded.delete(projectId);
+    } else {
+      newExpanded.add(projectId);
+    }
+    setExpandedProjects(newExpanded);
   };
 
   const getCategoryIcon = (category: TradeType) => {
@@ -85,6 +103,10 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
       // case TradeType.LANDSCAPER: return '🌳';
       default: return '🔧';
     }
+  };
+
+  const getPurchaseCount = (projectId: string) => {
+    return purchasesByJob.get(projectId)?.length || 0;
   };
 
   if (loading) {
@@ -118,48 +140,75 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
           <h2 className="text-2xl font-bold text-gray-900 brand-font mb-6">My Projects</h2>
           
           {projects.length > 0 ? (
-            projects.map(project => (
-              <div 
-                key={project.id} 
-                className="bg-white p-6 rounded-[2.5rem] shadow-sm border-2 border-transparent hover:border-gray-200 transition-all"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-start space-x-4 flex-1">
-                    <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl flex-shrink-0">
-                      {getCategoryIcon(project.category)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="font-bold text-gray-900 text-lg">{project.title}</h3>
-                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                          project.is_active 
-                            ? 'bg-green-100 text-green-700' 
-                            : 'bg-gray-100 text-gray-500'
-                        }`}>
-                          {project.is_active ? '✓ Active' : 'Inactive'}
-                        </span>
+            projects.map(project => {
+              const purchaseCount = getPurchaseCount(project.id);
+              const isExpanded = expandedProjects.has(project.id);
+              const projectPurchases = purchasesByJob.get(project.id) || [];
+
+              return (
+                <div 
+                  key={project.id} 
+                  className="bg-white p-6 rounded-[2.5rem] shadow-sm border-2 border-transparent hover:border-gray-200 transition-all"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-start space-x-4 flex-1">
+                      <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl flex-shrink-0">
+                        {getCategoryIcon(project.category)}
                       </div>
-                      <p className="text-sm text-gray-400 font-bold uppercase mb-3">
-                        {project.category} • Posted {project.postedDate}
-                      </p>
-                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                        {project.description}
-                      </p>
-                      <div className="flex items-center gap-4 text-sm">
-                        <div className="flex items-center text-gray-500">
-                          📍 {project.location}, {project.zipcode}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="font-bold text-gray-900 text-lg">{project.title}</h3>
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                            project.is_active 
+                              ? 'bg-green-100 text-green-700' 
+                              : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {project.is_active ? '✓ Active' : 'Inactive'}
+                          </span>
+                          {purchaseCount > 0 && (
+                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-100 text-indigo-700">
+                              {purchaseCount} {purchaseCount === 1 ? 'Lead' : 'Leads'} Purchased
+                            </span>
+                          )}
                         </div>
-                        {project.budget_min && (
-                          <div className="flex items-center">
-                            <span className="text-green-600 font-bold">£{project.budget_min}</span>
+                        <p className="text-sm text-gray-400 font-bold uppercase mb-3">
+                          {project.category} • Posted {project.postedDate}
+                        </p>
+                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                          {project.description}
+                        </p>
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center text-gray-500">
+                            📍 {project.location}, {project.zipcode}
                           </div>
+                          {project.budget_min && (
+                            <div className="flex items-center">
+                              <span className="text-green-600 font-bold">£{project.budget_min}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* View Interested Professionals Button */}
+                        {purchaseCount > 0 && (
+                          <button
+                            onClick={() => toggleProjectExpansion(project.id)}
+                            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-all flex items-center gap-2"
+                          >
+                            {isExpanded ? '▼' : '▶'} 
+                            {isExpanded ? 'Hide' : 'View'} Interested Professionals
+                          </button>
                         )}
                       </div>
                     </div>
                   </div>
+
+                  {/* Show purchased leads when expanded */}
+                  {isExpanded && (
+                    <PurchasedLeadCard purchases={projectPurchases} />
+                  )}
                 </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="bg-white rounded-[3rem] p-20 text-center border-2 border-dashed border-gray-100">
               <div className="text-6xl mb-6">📝</div>

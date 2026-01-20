@@ -1,13 +1,13 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { User } from '../../types';
 
-interface ClientLandingPageProps {
-  user: User;
-}
+const ClientLandingPage = ({ user = { fullName: 'John' } }) => {
+  const handlePostJob = () => {
+    console.log('Navigate to post job');
+  };
 
-const ClientLandingPage: React.FC<ClientLandingPageProps> = ({ user }) => {
-  const navigate = useNavigate();
+  const handleViewDashboard = () => {
+    console.log('Navigate to dashboard');
+  };
 
   return (
     <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 min-h-screen">
@@ -17,36 +17,45 @@ const ClientLandingPage: React.FC<ClientLandingPageProps> = ({ user }) => {
         
         <div className="relative max-w-7xl mx-auto px-4 py-20 sm:py-32">
           <div className="text-center">
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-gray-900 brand-font mb-6">
+            <div className="inline-block mb-6 px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full text-sm font-bold shadow-lg">
+              ✨ Always FREE to Post Jobs
+            </div>
+            
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-gray-900 mb-6">
               Welcome back,{' '}
               <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 {user.fullName.split(' ')[0]}
               </span>
               ! 👋
             </h1>
-            <p className="text-xl sm:text-2xl text-gray-600 font-medium max-w-3xl mx-auto mb-12 leading-relaxed">
-              Connect with verified, elite professionals who are ready to bring your job to life.
+            
+            <p className="text-xl sm:text-2xl text-gray-600 font-medium max-w-3xl mx-auto mb-4 leading-relaxed">
+              Post your home improvement jobs for free and receive quotes from verified, elite professionals.
+            </p>
+            
+            <p className="text-lg text-emerald-600 font-bold mb-12">
+              No fees. No charges. Post unlimited jobs anytime.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <button
-                onClick={() => navigate('/post-project')}
+                onClick={handlePostJob}
                 className="group relative px-10 py-5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-bold text-lg shadow-2xl shadow-indigo-200 hover:shadow-3xl hover:scale-105 transition-all duration-300"
               >
                 <span className="relative z-10 flex items-center">
-                  Post Your Job Now
+                  Post Your Job Free
                   <svg className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                   </svg>
                 </span>
               </button>
               
-              <Link
-                to="/dashboard"
+              <button
+                onClick={handleViewDashboard}
                 className="px-10 py-5 bg-white border-2 border-indigo-200 text-indigo-700 rounded-2xl font-bold text-lg shadow-lg hover:shadow-xl hover:border-indigo-300 transition-all"
               >
                 View My Jobs
-              </Link>
+              </button>
             </div>
           </div>
         </div>
@@ -54,7 +63,11 @@ const ClientLandingPage: React.FC<ClientLandingPageProps> = ({ user }) => {
 
       {/* Stats Section */}
       <div className="max-w-7xl mx-auto px-4 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white rounded-3xl p-8 shadow-xl border border-green-100 text-center transform hover:scale-105 transition-all">
+            <div className="text-5xl font-extrabold text-green-600 mb-2">100%</div>
+            <div className="text-gray-600 font-bold">Free Job Posting</div>
+          </div>
           <div className="bg-white rounded-3xl p-8 shadow-xl border border-indigo-100 text-center transform hover:scale-105 transition-all">
             <div className="text-5xl font-extrabold text-indigo-600 mb-2">2,500+</div>
             <div className="text-gray-600 font-bold">Verified Professionals</div>
@@ -72,11 +85,11 @@ const ClientLandingPage: React.FC<ClientLandingPageProps> = ({ user }) => {
 
       {/* How It Works Section */}
       <div className="max-w-7xl mx-auto px-4 py-20">
-        <h2 className="text-4xl font-extrabold text-center text-gray-900 brand-font mb-4">
-          How Elite Connector Works
+        <h2 className="text-4xl font-extrabold text-center text-gray-900 mb-4">
+          How Elite Connector Works for You
         </h2>
         <p className="text-center text-gray-600 font-medium text-lg mb-16 max-w-2xl mx-auto">
-          Get matched with elite professionals in three simple steps
+          Post your job for free and get matched with elite professionals in three simple steps
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -87,10 +100,13 @@ const ClientLandingPage: React.FC<ClientLandingPageProps> = ({ user }) => {
                 1
               </div>
               <div className="text-6xl mb-6 mt-4">📝</div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Post Your Job</h3>
-              <p className="text-gray-600 leading-relaxed">
-                Describe your job requirements, timeline, and budget. Our platform instantly connects you with relevant professionals.
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">Post Your Job Free</h3>
+              <p className="text-gray-600 leading-relaxed mb-4">
+                Describe your home improvement project, timeline, and requirements. No credit card needed, no hidden fees.
               </p>
+              <div className="inline-block px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-bold">
+                Always Free
+              </div>
             </div>
           </div>
 
@@ -101,9 +117,9 @@ const ClientLandingPage: React.FC<ClientLandingPageProps> = ({ user }) => {
                 2
               </div>
               <div className="text-6xl mb-6 mt-4">💼</div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Review Proposals</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">Receive Free Quotes</h3>
               <p className="text-gray-600 leading-relaxed">
-                Receive interest from verified professionals. Review their profiles, ratings, portfolios, and quotes before making a decision.
+                Professionals in your area will review your job and submit quotes. Compare profiles, ratings, portfolios, and pricing at your convenience.
               </p>
             </div>
           </div>
@@ -115,10 +131,66 @@ const ClientLandingPage: React.FC<ClientLandingPageProps> = ({ user }) => {
                 3
               </div>
               <div className="text-6xl mb-6 mt-4">✅</div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">Hire & Collaborate</h3>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">Choose & Connect</h3>
               <p className="text-gray-600 leading-relaxed">
-                Accept the best professional for your needs. Get their contact details instantly and start your job with confidence.
+                Review all quotes received, select your preferred professional, and get their contact details instantly to start your project.
               </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Why Free Section */}
+      <div className="bg-gradient-to-br from-green-50 to-emerald-50 py-20">
+        <div className="max-w-5xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-extrabold text-gray-900 mb-4">
+              Why Is Posting Free?
+            </h2>
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+              We believe homeowners should connect with professionals without barriers. You'll never pay to post a job.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white rounded-2xl p-8 shadow-lg border border-green-100">
+              <div className="flex items-start gap-4">
+                <div className="text-4xl">🎯</div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Hidden Costs</h3>
+                  <p className="text-gray-600">Post unlimited jobs, receive unlimited quotes. No subscription fees, no listing charges, no surprises.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-8 shadow-lg border border-green-100">
+              <div className="flex items-start gap-4">
+                <div className="text-4xl">⚡</div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Instant Matching</h3>
+                  <p className="text-gray-600">Your job is instantly visible to verified professionals in your area who match your trade requirements.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-8 shadow-lg border border-green-100">
+              <div className="flex items-start gap-4">
+                <div className="text-4xl">🎯</div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">Compare & Choose</h3>
+                  <p className="text-gray-600">Review multiple quotes side-by-side and select the professional that best fits your needs and budget.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-8 shadow-lg border border-green-100">
+              <div className="flex items-start gap-4">
+                <div className="text-4xl">🤝</div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">You're in Control</h3>
+                  <p className="text-gray-600">Review quotes at your pace, choose who to work with—all for free.</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -127,36 +199,30 @@ const ClientLandingPage: React.FC<ClientLandingPageProps> = ({ user }) => {
       {/* Features Section */}
       <div className="bg-gradient-to-r from-indigo-600 to-purple-600 py-20">
         <div className="max-w-7xl mx-auto px-4">
-          <h2 className="text-4xl font-extrabold text-center text-white brand-font mb-4">
-            Why Choose Elite Connector?
+          <h2 className="text-4xl font-extrabold text-center text-white mb-4">
+            What You Get With Elite Connector
           </h2>
           <p className="text-center text-indigo-100 font-medium text-lg mb-16">
-            Premium features that set us apart
+            Premium features at no cost to you
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
               <div className="text-4xl mb-4">🔒</div>
-              <h3 className="text-xl font-bold text-white mb-2">100% Verified</h3>
-              <p className="text-indigo-100 text-sm">All professionals undergo rigorous background checks and credential verification.</p>
+              <h3 className="text-xl font-bold text-white mb-2">Verified Pros Only</h3>
+              <p className="text-indigo-100 text-sm">All professionals undergo rigorous background checks and credential verification before joining.</p>
             </div>
 
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
               <div className="text-4xl mb-4">⭐</div>
-              <h3 className="text-xl font-bold text-white mb-2">Top-Rated Pros</h3>
-              <p className="text-indigo-100 text-sm">Access to professionals with 4.5+ star ratings and proven track records.</p>
-            </div>
-
-            <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
-              <div className="text-4xl mb-4">💬</div>
-              <h3 className="text-xl font-bold text-white mb-2">Direct Contact</h3>
-              <p className="text-indigo-100 text-sm">No middlemen. Get direct contact details once you accept a professional.</p>
+              <h3 className="text-xl font-bold text-white mb-2">Top-Rated Experts</h3>
+              <p className="text-indigo-100 text-sm">Access to professionals with proven track records and excellent client reviews.</p>
             </div>
 
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 border border-white/20">
               <div className="text-4xl mb-4">🛡️</div>
               <h3 className="text-xl font-bold text-white mb-2">Insured Work</h3>
-              <p className="text-indigo-100 text-sm">All professionals carry public liability insurance for your peace of mind.</p>
+              <p className="text-indigo-100 text-sm">All professionals carry public liability insurance for your complete peace of mind.</p>
             </div>
           </div>
         </div>
@@ -165,18 +231,43 @@ const ClientLandingPage: React.FC<ClientLandingPageProps> = ({ user }) => {
       {/* CTA Section */}
       <div className="max-w-5xl mx-auto px-4 py-20">
         <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-[3rem] p-12 sm:p-16 text-center shadow-2xl">
-          <h2 className="text-4xl font-extrabold text-white brand-font mb-6">
-            Ready to Start Your Job?
+          <div className="inline-block mb-6 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full text-base font-bold shadow-lg">
+            💯 Free Forever - No Credit Card Required
+          </div>
+          
+          <h2 className="text-4xl font-extrabold text-white mb-6">
+            Ready to Post Your First Job?
           </h2>
           <p className="text-gray-300 text-lg mb-10 max-w-2xl mx-auto">
-            Join thousands of satisfied clients who found their perfect professional on Elite Connector.
+            Join thousands of satisfied homeowners who found their perfect professional on Elite Connector. Completely free, forever.
           </p>
           <button
-            onClick={() => navigate('/post-project')}
+            onClick={handlePostJob}
             className="px-12 py-5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-2xl font-bold text-xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300"
           >
-            Post Your First Job Free
+            Post Your Job Free Now
           </button>
+          
+          <div className="mt-8 flex items-center justify-center gap-8 text-gray-400 text-sm">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              No Fees
+            </div>
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              No Sign-Up Cost
+            </div>
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              Unlimited Jobs
+            </div>
+          </div>
         </div>
       </div>
     </div>
