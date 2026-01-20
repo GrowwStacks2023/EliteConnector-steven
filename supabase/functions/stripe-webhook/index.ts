@@ -1,24 +1,21 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.5.0?target=deno";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") as string, {
   apiVersion: "2023-10-16",
   httpClient: Stripe.createFetchHttpClient(),
 });
 
-const cryptoProvider = Stripe.createSubtleCryptoProvider();
-
-const supabase = createClient(
-  Deno.env.get("SUPABASE_URL") ?? "",
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+const supabaseAdmin = createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
-// Map Stripe price IDs to tiers and credits
-const PRICE_CONFIG: Record<string, { tier: string; credits: number }> = {
-  "price_1SpE2028nEEm4LkcaW2SYnlL": { tier: "tier_1", credits: 49 },   // Replace with your actual price IDs
-  "price_1SpE2028nEEm4LkcshR1lzsB": { tier: "tier_2", credits: 99 },
-  "price_1SpE1z28nEEm4LkcCdN7xBrI": { tier: "tier_3", credits: 199 },
+const creditMap: Record<string, { credits: number; tier: string }> = {
+  "price_1SpE2128nEEm4LkcE8EVaurU": { credits: 40, tier: "tier_1" },
+  "price_1SpE2028nEEm4LkcshR1lzsB": { credits: 75, tier: "tier_2" },
+  "price_1SpE2028nEEm4Lkc123456789": { credits: 175, tier: "tier_3" },
 };
 
 serve(async (req) => {
@@ -32,109 +29,117 @@ serve(async (req) => {
       signature!,
       Deno.env.get("STRIPE_WEBHOOK_SECRET")!,
       undefined,
-      cryptoProvider
+      Stripe.createSubtleCryptoProvider()
     );
   } catch (err) {
+    console.error("❌ Webhook signature verification failed:", err);
     return new Response(JSON.stringify({ error: err.message }), { status: 400 });
   }
 
   try {
+    console.log("📨 Webhook event type:", event.type);
+
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        const subscription = await stripe.subscriptions.retrieve(
-          session.subscription as string
-        );
+        console.log("✅ Checkout completed:", session.id);
 
-        const priceId = subscription.items.data[0].price.id;
-        const config = PRICE_CONFIG[priceId];
+        const userId = session.metadata?.supabase_user_id;
+        const priceId = session.metadata?.price_id;
 
-        if (!config) {
-          throw new Error(`Unknown price ID: ${priceId}`);
+        console.log("🔍 User ID:", userId);
+        console.log("🔍 Price ID:", priceId);
+
+        if (!userId || !priceId) {
+          console.error("❌ Missing userId or priceId");
+          return new Response(
+            JSON.stringify({ error: "Missing required metadata" }),
+            { status: 400 }
+          );
         }
 
-        await supabase.from("subscriptions").upsert({
-          user_id: session.metadata?.user_id,
-          stripe_subscription_id: subscription.id,
-          stripe_customer_id: subscription.customer as string,
-          status: subscription.status,
-          tier: config.tier,
-          price_id: priceId,
-          credits: config.credits,
-          used_credits: 0,
-          current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-          current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-          cancel_at_period_end: subscription.cancel_at_period_end,
-        });
-        break;
-      }
-
-      case "customer.subscription.updated": {
-        const subscription = event.data.object as Stripe.Subscription;
-        const priceId = subscription.items.data[0].price.id;
-        const config = PRICE_CONFIG[priceId];
-
-        if (!config) {
-          throw new Error(`Unknown price ID: ${priceId}`);
+        const creditInfo = creditMap[priceId];
+        if (!creditInfo) {
+          console.error("❌ Unknown price ID:", priceId);
+          return new Response(
+            JSON.stringify({ error: "Unknown price ID" }),
+            { status: 400 }
+          );
         }
 
-        // Get current subscription to check if billing period changed
-        const { data: currentSub } = await supabase
-          .from("subscriptions")
-          .select("current_period_end")
-          .eq("stripe_subscription_id", subscription.id)
+        console.log(`💳 Adding ${creditInfo.credits} credits to user ${userId}`);
+
+        // Get current credits
+        const { data: userData, error: fetchError } = await supabaseAdmin
+          .from("user")
+          .select("credits")
+          .eq("id", userId)
           .single();
 
-        const newPeriodEnd = new Date(subscription.current_period_end * 1000).toISOString();
-        const periodChanged = currentSub?.current_period_end !== newPeriodEnd;
+        if (fetchError) {
+          console.error("❌ Error fetching user:", fetchError);
+          throw fetchError;
+        }
 
-        await supabase
-          .from("subscriptions")
+        const currentCredits = userData?.credits || 0;
+        const newCredits = currentCredits + creditInfo.credits;
+
+        // Update credits
+        const { error: updateError } = await supabaseAdmin
+          .from("user")
           .update({
-            status: subscription.status,
-            tier: config.tier,
+            credits: newCredits,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", userId);
+
+        if (updateError) {
+          console.error("❌ Error updating credits:", updateError);
+          throw updateError;
+        }
+
+        console.log(`✅ Credits updated. New total: ${newCredits}`);
+
+        // Store subscription record
+        const { error: purchaseError } = await supabaseAdmin
+          .from("credit_purchases")
+          .insert({
+            user_id: userId,
+            stripe_customer_id: session.customer as string,
+            stripe_session_id: session.id,
+            stripe_payment_intent_id: session.payment_intent as string,
             price_id: priceId,
-            credits: config.credits,
-            used_credits: periodChanged ? 0 : undefined, // Reset credits if new billing period
-            current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
-            current_period_end: newPeriodEnd,
-            cancel_at_period_end: subscription.cancel_at_period_end,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("stripe_subscription_id", subscription.id);
-        break;
+            credits: creditInfo.credits,
+            amount_paid: session.amount_total ? session.amount_total / 100 : 0,
+            status: "completed",
+          });
+
+        if (purchaseError) {
+          console.error("⚠️ Purchase record error:", purchaseError);
+        } else {
+          console.log("✅ Purchase record stored");
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, newCredits }),
+          { status: 200 }
+        );
       }
 
-      case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
-        
-        await supabase
-          .from("subscriptions")
-          .update({
-            status: "canceled",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("stripe_subscription_id", subscription.id);
-        break;
+      case "invoice.payment_succeeded": {
+        console.log("✅ Invoice payment succeeded");
+        return new Response(JSON.stringify({ received: true }), { status: 200 });
       }
 
-      case "invoice.payment_failed": {
-        const invoice = event.data.object as Stripe.Invoice;
-        
-        await supabase
-          .from("subscriptions")
-          .update({
-            status: "past_due",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("stripe_subscription_id", invoice.subscription as string);
-        break;
-      }
+      default:
+        console.log("ℹ️ Unhandled event type:", event.type);
+        return new Response(JSON.stringify({ received: true }), { status: 200 });
     }
-
-    return new Response(JSON.stringify({ received: true }), { status: 200 });
-  } catch (error) {
-    console.error("Webhook error:", error);
-    return new Response(JSON.stringify({ error: error.message }), { status: 400 });
+  } catch (err) {
+    console.error("❌ Webhook processing error:", err);
+    return new Response(
+      JSON.stringify({ error: err.message }),
+      { status: 500 }
+    );
   }
 });

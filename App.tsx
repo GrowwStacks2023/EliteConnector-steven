@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Header from '../EliteConnector-steven/src/components/Header';
 import Footer from '../EliteConnector-steven/src/components/Footer';
 import Swal from 'sweetalert2';
+import { AuthProvider, useAuth } from '../EliteConnector-steven/src/context/AuthContext';
 
 // Pages
 import HomePage from '../EliteConnector-steven/src/pages/HomePage';
@@ -22,25 +23,24 @@ import LeadQuestionnairePage from '../EliteConnector-steven/src/pages/LeadQuesti
 import SubscriptionPage from '../EliteConnector-steven/src/pages/SubscriptionPage';
 import CartPage from '../EliteConnector-steven/src/pages/CartPage';
 import PortfolioPage from '../EliteConnector-steven/src/pages/PortfolioPage';
+import SubscriptionSuccess from '../EliteConnector-steven/src/pages/SubscriptionSuccess';
 import ClientLandingPage from '../EliteConnector-steven/src/pages/ClientLandingPage';
 
 // Services
 import { reserveLead, releaseLead, releaseMultipleLeads } from './src/services/reservationService';
 
+
 // Types
 import { User, UserRole, Lead } from './types';
 
-const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
+
+const AppContent: React.FC = () => {
+  const { user, logout: authLogout, updateUserProfile } = useAuth();
   const [cart, setCart] = useState<Lead[]>([]);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
-  // Initial load
+  // Initial cart load
   useEffect(() => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
     const savedCart = localStorage.getItem('ec_cart');
     const savedTime = localStorage.getItem('ec_cart_time');
 
@@ -56,9 +56,7 @@ const App: React.FC = () => {
         // Cart expired - release all leads
         const leadIds = parsedCart.map((lead: Lead) => lead.id);
         if (leadIds.length > 0) {
-          releaseMultipleLeads(leadIds).catch(err => 
-            console.error('Failed to release expired leads:', err)
-          );
+          releaseMultipleLeads(leadIds).catch(() => { });
         }
         localStorage.removeItem('ec_cart');
         localStorage.removeItem('ec_cart_time');
@@ -92,8 +90,7 @@ const App: React.FC = () => {
           ...user,
           abandonedLeadIds: [...currentAbandoned, ...newlyAbandoned]
         };
-        setUser(updatedUser);
-        localStorage.setItem('user', JSON.stringify(updatedUser));
+        updateUserProfile(updatedUser);
       }
     }
   };
@@ -102,48 +99,36 @@ const App: React.FC = () => {
     const leadIdsInCart = cart.map(l => l.id);
     markLeadsAsAbandoned(leadIdsInCart);
 
-    // Release all leads from cart (make them available again)
     if (leadIdsInCart.length > 0) {
       try {
         await releaseMultipleLeads(leadIdsInCart);
-      } catch (err) {
-        console.error('Failed to release leads on session expire:', err);
-      }
+      } catch (err) { }
     }
 
     setCart([]);
     setTimeLeft(null);
     localStorage.removeItem('ec_cart');
     localStorage.removeItem('ec_cart_time');
-    
+
     Swal.fire({
       title: 'Session Expired',
-      text: 'Your 3-minute cart reservation has ended. These leads are now available for other providers.',
+      text: 'Your 3-minute cart reservation has ended.',
       icon: 'warning',
       confirmButtonColor: '#4f46e5'
     });
   };
 
-  const handleLogin = (userData: User) => {
-    setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
-  };
-
   const handleLogout = async () => {
-    // Release any leads in cart before logout
     const leadIdsInCart = cart.map(l => l.id);
     if (leadIdsInCart.length > 0) {
       try {
         await releaseMultipleLeads(leadIdsInCart);
-      } catch (err) {
-        console.error('Failed to release leads on logout:', err);
-      }
+      } catch (err) { }
     }
 
-    setUser(null);
+    await authLogout();
     setCart([]);
     setTimeLeft(null);
-    localStorage.removeItem('user');
     localStorage.removeItem('ec_cart');
     localStorage.removeItem('ec_cart_time');
   };
@@ -151,14 +136,8 @@ const App: React.FC = () => {
   const updateCredits = (newCredits: number) => {
     if (user) {
       const updatedUser = { ...user, credits: newCredits };
-      setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      updateUserProfile(updatedUser);
     }
-  };
-
-  const updateUserProfile = (updatedUser: User) => {
-    setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
   };
 
   const addToCart = async (lead: Lead) => {
@@ -173,7 +152,6 @@ const App: React.FC = () => {
     }
 
     try {
-      // Reserve lead in database (hides it from others)
       await reserveLead(lead.id, user.id);
 
       setCart((prev) => {
@@ -192,10 +170,9 @@ const App: React.FC = () => {
         return newCart;
       });
 
-      // Success notification
       Swal.fire({
         title: 'Added to Cart!',
-        text: 'Lead reserved for 3 minutes. Complete checkout before timer expires.',
+        text: 'Lead reserved for 3 minutes.',
         icon: 'success',
         timer: 2000,
         showConfirmButton: false,
@@ -204,10 +181,9 @@ const App: React.FC = () => {
       });
 
     } catch (err: any) {
-      console.error('Failed to add to cart:', err);
       Swal.fire({
         title: 'Already Reserved',
-        text: 'This lead was just reserved by another provider. Please try another lead.',
+        text: 'This lead was just reserved by another provider.',
         icon: 'error',
         confirmButtonColor: '#4f46e5'
       });
@@ -216,14 +192,11 @@ const App: React.FC = () => {
 
   const removeFromCart = async (leadId: string) => {
     markLeadsAsAbandoned([leadId]);
-    
-    // Release lead reservation (make it available again)
+
     try {
       await releaseLead(leadId);
-    } catch (err) {
-      console.error('Failed to release lead:', err);
-    }
-    
+    } catch (err) { }
+
     setCart((prev) => {
       const newCart = prev.filter(item => item.id !== leadId);
       localStorage.setItem('ec_cart', JSON.stringify(newCart));
@@ -237,16 +210,13 @@ const App: React.FC = () => {
 
   const clearCart = async () => {
     const leadIdsInCart = cart.map(l => l.id);
-    
-    // Release all leads (make them available again)
+
     if (leadIdsInCart.length > 0) {
       try {
         await releaseMultipleLeads(leadIdsInCart);
-      } catch (err) {
-        console.error('Failed to release leads on clear cart:', err);
-      }
+      } catch (err) { }
     }
-    
+
     setCart([]);
     setTimeLeft(null);
     localStorage.removeItem('ec_cart');
@@ -256,110 +226,139 @@ const App: React.FC = () => {
   const isServiceProviderAndIncomplete = user?.role === UserRole.SERVICE_PROVIDER && !user.isProfileComplete;
 
   return (
+    <div className="flex flex-col min-h-screen">
+      <Header user={user} onLogout={handleLogout} cartCount={cart.length} timeLeft={timeLeft} />
+
+      <main className="flex-grow">
+        <Routes>
+          <Route path="/" element={<HomePage user={user} />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route
+            path="/portfolio"
+            element={user ? <PortfolioPage user={user} onUpdateProfile={updateUserProfile} /> : <Navigate to="/login" />}
+          />
+          <Route
+            path="/client-home"
+            element={user?.role === UserRole.CLIENT ? <ClientLandingPage user={user} /> : <Navigate to="/login" />}
+          />
+
+          <Route
+            path="/dashboard"
+            element={
+              user ? (
+                isServiceProviderAndIncomplete ? (
+                  <Navigate to="/profile" replace />
+                ) : user.role === UserRole.CLIENT ? (
+                  <ClientDashboard user={user} />
+                ) : (
+                  <LeadsDashboard user={user} cart={cart} onAddToCart={addToCart} />
+                )
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+
+          <Route
+            path="/cart"
+            element={
+              user ? (
+                isServiceProviderAndIncomplete ? (
+                  <Navigate to="/profile" replace />
+                ) : (
+                  <CartPage
+                    user={user}
+                    cart={cart}
+                    onRemoveFromCart={removeFromCart}
+                    onClearCart={clearCart}
+                    onUpdateCredits={updateCredits}
+                    timeLeft={timeLeft}
+                  />
+                )
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+
+          <Route
+            path="/my-purchases"
+            element={
+              user ? (
+                isServiceProviderAndIncomplete ? (
+                  <Navigate to="/profile" replace />
+                ) : (
+                  <MyPurchases user={user} />
+                )
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+
+          <Route
+            path="/lead/:id"
+            element={
+              user ? (
+                isServiceProviderAndIncomplete ? (
+                  <Navigate to="/profile" replace />
+                ) : (
+                  <ViewLead user={user} />
+                )
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+
+          <Route
+            path="/profile"
+            element={user ? <ProfilePage user={user} onUpdateProfile={updateUserProfile} /> : <Navigate to="/login" />}
+          />
+
+          <Route
+            path="/subscription"
+            element={user ? <SubscriptionPage /> : <Navigate to="/login" />}
+          />
+
+          <Route
+            path="/subscription/success"
+            element={<SubscriptionSuccess />}
+          />
+
+          <Route
+            path="/admin"
+            element={user?.role === UserRole.ADMIN ? <AdminDashboard user={user} /> : <Navigate to="/login" />}
+          />
+
+          <Route
+            path="/post-lead"
+            element={user?.role === UserRole.ADMIN ? <SubmitLeadPage /> : <Navigate to="/login" />}
+          />
+
+          <Route
+            path="/post-project"
+            element={user?.role === UserRole.CLIENT ? <PostProjectPage user={user} /> : <Navigate to="/login" />}
+          />
+
+          <Route path="/form/:leadId" element={<LeadQuestionnairePage />} />
+        </Routes>
+      </main>
+
+      <Footer />
+    </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
     <Router>
-      <div className="flex flex-col min-h-screen">
-        <Header user={user} onLogout={handleLogout} cartCount={cart.length} timeLeft={timeLeft} />
-
-        <main className="flex-grow">
-          <Routes>
-            <Route path="/" element={<HomePage user={user} />} />
-            <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
-            <Route path="/register" element={<RegisterPage onRegister={handleLogin} />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/portfolio" element={user ? <PortfolioPage user={user} onUpdateProfile={updateUserProfile} /> : <Navigate to="/login" />}
-            />
-            <Route
-              path="/client-home"
-              element={user?.role === UserRole.CLIENT ? <ClientLandingPage user={user} /> : <Navigate to="/login" />}
-            />
-
-            <Route
-              path="/dashboard"
-              element={
-                user ? (
-                  isServiceProviderAndIncomplete ? (
-                    <Navigate to="/profile" replace />
-                  ) : user.role === UserRole.CLIENT ? (
-                    <ClientDashboard user={user} />
-                  ) : (
-                    <LeadsDashboard user={user} cart={cart} onAddToCart={addToCart} />
-                  )
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/cart"
-              element={
-                user ? (
-                  isServiceProviderAndIncomplete ? (
-                    <Navigate to="/profile" replace />
-                  ) : (
-                    <CartPage user={user} cart={cart} onRemoveFromCart={removeFromCart} onClearCart={clearCart} onUpdateCredits={updateCredits} timeLeft={timeLeft} />
-                  )
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/my-purchases"
-              element={
-                user ? (
-                  isServiceProviderAndIncomplete ? (
-                    <Navigate to="/profile" replace />
-                  ) : (
-                    <MyPurchases user={user} />
-                  )
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/lead/:id"
-              element={
-                user ? (
-                  isServiceProviderAndIncomplete ? (
-                    <Navigate to="/profile" replace />
-                  ) : (
-                    <ViewLead user={user} />
-                  )
-                ) : (
-                  <Navigate to="/login" />
-                )
-              }
-            />
-            <Route
-              path="/profile"
-              element={user ? <ProfilePage user={user} onUpdateProfile={updateUserProfile} /> : <Navigate to="/login" />}
-            />
-            <Route
-              path="/subscription"
-              element={user ? <SubscriptionPage /> : <Navigate to="/login" />}
-            />
-
-            <Route
-              path="/admin"
-              element={user?.role === UserRole.ADMIN ? <AdminDashboard user={user} /> : <Navigate to="/login" />}
-            />
-            <Route
-              path="/post-lead"
-              element={user?.role === UserRole.ADMIN ? <SubmitLeadPage /> : <Navigate to="/login" />}
-            />
-            <Route
-              path="/post-project"
-              element={user?.role === UserRole.CLIENT ? <PostProjectPage user={user} /> : <Navigate to="/login" />}
-            />
-
-            <Route path="/form/:leadId" element={<LeadQuestionnairePage />} />
-          </Routes>
-        </main>
-
-        <Footer />
-      </div>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </Router>
   );
 };

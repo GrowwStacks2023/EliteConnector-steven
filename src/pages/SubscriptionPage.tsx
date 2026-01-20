@@ -1,200 +1,298 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { createCheckoutSession } from '../services/stripeService';
+import toast from 'react-hot-toast';
 
-import React from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { SubscriptionTier } from '../../types';
-import Swal from 'sweetalert2';
-import { supabase } from '../lib/supabaseClient';
-
-const SubscriptionPage: React.FC = () => {
+const PricingPage: React.FC = () => {
+  const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState<string | null>(null);
 
-const handleSubscribe = async (tier: string) => {
+  const creditPackages = [
+    {
+      name: 'Starter Pack',
+      price: 29,
+      credits: 40,
+      priceId: 'price_1SpE2128nEEm4LkcE8EVaurU',
+      popular: false,
+      pricePerCredit: 0.73,
+      features: [
+        '40 Lead Credits',
+        'Basic Support',
+        'Valid for 90 days',
+        'No subscription required'
+      ],
+      badge: null,
+      bgColor: 'from-blue-50 to-indigo-50',
+      borderColor: 'border-blue-200',
+      buttonColor: 'bg-blue-600 hover:bg-blue-700'
+    },
+    {
+      name: 'Professional',
+      price: 50,
+      credits: 75,
+      priceId: 'price_1SpE2028nEEm4LkcshR1lzsB',
+      popular: true,
+      pricePerCredit: 0.67,
+      features: [
+        '75 Lead Credits',
+        'Priority Support',
+        'Valid for 180 days',
+        'No subscription required',
+        'Save 8% vs Starter'
+      ],
+      badge: 'Most Popular',
+      bgColor: 'from-indigo-50 to-purple-50',
+      borderColor: 'border-indigo-400',
+      buttonColor: 'bg-indigo-600 hover:bg-indigo-700'
+    },
+    {
+      name: 'Enterprise',
+      price: 100,
+      credits: 175,
+      priceId: 'price_1SpE2028nEEm4Lkc123456789',
+      popular: false,
+      pricePerCredit: 0.57,
+      features: [
+        '175 Lead Credits',
+        'Premium Support',
+        'Valid for 365 days',
+        'No subscription required',
+        'Save 22% vs Starter',
+        'Dedicated Account Manager'
+      ],
+      badge: 'Best Value',
+      bgColor: 'from-purple-50 to-pink-50',
+      borderColor: 'border-purple-200',
+      buttonColor: 'bg-purple-600 hover:bg-purple-700'
+    },
+  ];
+
+  const handlePurchase = async (priceId: string, packageName: string) => {
+  if (!isAuthenticated) {
+    toast.error('Please log in to purchase credits');
+    navigate('/login');
+    return;
+  }
+
+  setLoading(priceId);
+
   try {
-    // 1️⃣ Check logged-in user
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session?.user) {
-      Swal.fire({
-        title: 'Login required',
-        text: 'Please log in to subscribe',
-        icon: 'warning',
-        confirmButtonColor: '#4f46e5'
-      });
-      return;
-    }
-
-    // 2️⃣ Map tiers → Stripe prices
-    const priceIds = {
-      [SubscriptionTier.TIER1]: 'price_1SpE2028nEEm4LkcaW2SYnlL',
-      [SubscriptionTier.TIER2]: 'price_1SpE2028nEEm4LkcshR1lzsB',
-      [SubscriptionTier.TIER3]: 'price_1SpE1z28nEEm4LkcCdN7xBrI',
-    };
-
-    const priceId = priceIds[tier as SubscriptionTier];
-    if (!priceId) throw new Error('Invalid tier selected');
-
-    // 3️⃣ Call Edge Function WITH AUTH
-    const { data, error } = await supabase.functions.invoke(
-      'create-checkout-session',
-      {
-        body: { priceId },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      }
-    );
-
-    if (error) throw error;
-
-    if (data?.url) {
-      window.location.href = data.url;
-    }
+    console.log('🎯 Purchasing package:', packageName);
+    
+    const checkoutUrl = await createCheckoutSession(priceId);
+    
+    console.log('✅ Redirecting to Stripe Checkout...');
+    // Redirect to Stripe checkout - payment success will redirect to /subscription/success
+    window.location.href = checkoutUrl;
+    
   } catch (error: any) {
-    Swal.fire({
-      title: 'Error',
-      text: error.message || 'Failed to create checkout session',
-      icon: 'error',
-      confirmButtonColor: '#4f46e5'
-    });
+    console.error('❌ Purchase error:', error);
+    toast.error(error.message || 'Failed to create checkout session');
+    setLoading(null);
   }
 };
 
-  const tiers = [
-    {
-      name: SubscriptionTier.TIER1,
-      price: "862.37",
-      period: "/month",
-      description: "Perfect for sole traders starting their journey.",
-      features: [
-        "Access to 5 Premium Leads",
-        "Standard Email Support",
-        "Basic Elite Connector Sync",
-        "Lead Marketplace Access"
-      ],
-      color: "bg-white",
-      textColor: "text-black",
-      buttonColor: "bg-gray-900 text-white",
-      highlight: false
-    },
-    {
-      name: SubscriptionTier.TIER2,
-      price: "2388",
-      period: "/month",
-      description: "The professional choice for growing businesses.",
-      features: [
-        "Access to 20 Premium Leads",
-        "Priority Support",
-        "Advanced Elite Connector Integration",
-        "Verified Pro Badge",
-        "Multi-Trade Access"
-      ],
-      color: "bg-indigo-600 text-white",
-      textColor: "text-white",
-      buttonColor: "bg-white text-indigo-600",
-      highlight: true
-    },
-    {
-      name: SubscriptionTier.TIER3,
-      price: "199",
-      period: "/month",
-      description: "Scale your empire with unlimited possibilities.",
-      features: [
-        "Unlimited Lead Access",
-        "Dedicated Account Manager",
-        "Custom Workflow Sync",
-        "Early Access to Hot Leads",
-        "White-label GHL Features",
-        "Unlimited Team Members"
-      ],
-      color: "bg-white",
-      textColor: "text-black",
-      buttonColor: "bg-gray-900 text-white",
-      highlight: false
-    }
-  ];
-
   return (
-    <div className="bg-indigo-50/50 min-h-screen py-20 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        {/* Back Button */}
-        <div className="mb-8">
-          <button 
-            onClick={() => navigate(-1)} 
-            className="flex items-center text-indigo-600 font-bold hover:underline group"
-          >
-            <svg className="w-5 h-5 mr-2 transform group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Back to Dashboard
-          </button>
-        </div>
-
+        {/* Header */}
         <div className="text-center mb-16">
-          <h1 className="text-5xl font-extrabold text-gray-900 brand-font mb-4">Choose Your Growth Path</h1>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto font-medium">
-            Unlock exclusive leads and powerful automation tools designed for top-tier tradespeople.
+          <h2 className="text-5xl font-extrabold text-gray-900 mb-4">
+            Credit Packages
+          </h2>
+          <p className="text-xl text-gray-600 mb-2">
+            Purchase credits once, use them anytime
+          </p>
+          <p className="text-sm text-gray-500">
+            No recurring charges • Credits never expire • Cancel anytime
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
-          {tiers.map((tier, idx) => (
-            <div 
-              key={idx} 
-              className={`relative rounded-[3rem] p-10 shadow-2xl transition-all hover:-translate-y-2 border border-gray-100 flex flex-col ${tier.color} ${tier.textColor} ${tier.highlight ? 'ring-4 ring-indigo-200 scale-105 z-10' : 'z-0'}`}
+        {/* Pricing Cards */}
+        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {creditPackages.map((pkg) => (
+            <div
+              key={pkg.priceId}
+              className={`relative bg-gradient-to-br ${pkg.bgColor} rounded-3xl shadow-xl overflow-hidden border-2 ${pkg.borderColor} ${
+                pkg.popular ? 'transform md:scale-105 shadow-2xl' : ''
+              } transition-all hover:shadow-2xl`}
             >
-              {tier.highlight && (
-                <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-indigo-500 text-white px-6 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest">
-                  Most Popular
+              {/* Popular Badge */}
+              {pkg.badge && (
+                <div className="absolute top-0 right-0">
+                  <div className={`${
+                    pkg.popular ? 'bg-indigo-600' : 'bg-purple-600'
+                  } text-white text-xs font-bold px-4 py-2 rounded-bl-xl rounded-tr-2xl`}>
+                    {pkg.badge}
+                  </div>
                 </div>
               )}
-              
-              <div className="mb-8">
-                <h3 className="text-2xl font-bold mb-2 brand-font">{tier.name}</h3>
-                <p className={`${tier.highlight ? 'text-indigo-100' : 'text-black'} text-sm font-medium mb-6 h-10`}>
-                  {tier.description}
-                </p>
-                <div className="flex items-baseline">
-                  <span className="text-4xl font-extrabold">{tier.price}</span>
-                  <span className={`ml-1 text-sm font-bold ${tier.highlight ? 'text-indigo-200' : 'text-gray-400'}`}>
-                    {tier.period}
-                  </span>
-                </div>
-              </div>
 
-              <div className="flex-grow mb-10">
-                <ul className="space-y-4">
-                  {tier.features.map((feature, fIdx) => (
-                    <li key={fIdx} className="flex items-start">
-                      <svg className={`w-5 h-5 mr-3 mt-0.5 ${tier.highlight ? 'text-indigo-300' : 'text-indigo-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+              <div className="p-8">
+                {/* Package Name */}
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                  {pkg.name}
+                </h3>
+
+                {/* Credits Display */}
+                <div className="mb-6">
+                  <div className="flex items-baseline mb-2">
+                    <span className="text-6xl font-extrabold text-indigo-600">
+                      {pkg.credits}
+                    </span>
+                    <span className="text-2xl font-semibold text-gray-600 ml-2">
+                      credits
+                    </span>
+                  </div>
+                  <div className="flex items-baseline">
+                    <span className="text-3xl font-bold text-gray-900">
+                      ${pkg.price}
+                    </span>
+                    <span className="text-sm text-gray-500 ml-2">
+                      (${pkg.pricePerCredit.toFixed(2)}/credit)
+                    </span>
+                  </div>
+                </div>
+
+                {/* Features */}
+                <ul className="space-y-3 mb-8">
+                  {pkg.features.map((feature, index) => (
+                    <li key={index} className="flex items-start">
+                      <svg
+                        className="h-5 w-5 text-green-500 mr-3 mt-0.5 flex-shrink-0"
+                        fill="none"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path d="M5 13l4 4L19 7"></path>
                       </svg>
-                      <span className="text-sm font-bold">{feature}</span>
+                      <span className="text-gray-700 text-sm">{feature}</span>
                     </li>
                   ))}
                 </ul>
-              </div>
 
-              <button 
-                onClick={() => handleSubscribe(tier.name)}
-                className={`w-full py-4 rounded-2xl font-bold text-lg transition-all hover:opacity-90 active:scale-[0.98] ${tier.buttonColor}`}
-              >
-                Get Started
-              </button>
+                {/* Purchase Button */}
+                <button
+                  onClick={() => handlePurchase(pkg.priceId, pkg.name)}
+                  disabled={loading === pkg.priceId}
+                  className={`w-full ${pkg.buttonColor} text-white py-4 px-6 rounded-xl font-bold text-lg transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg`}
+                >
+                  {loading === pkg.priceId ? (
+                    <span className="flex items-center justify-center">
+                      <svg
+                        className="animate-spin h-5 w-5 mr-3"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          fill="none"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                      Processing...
+                    </span>
+                  ) : (
+                    'Purchase Now'
+                  )}
+                </button>
+              </div>
             </div>
           ))}
         </div>
 
-        <div className="mt-20 text-center">
-          <p className="text-gray-500 font-medium">
-            Need a custom enterprise solution for a large trade network? 
-            <a href="#" className="text-indigo-600 font-bold ml-1 hover:underline">Contact our Sales Team</a>
-          </p>
+        {/* Additional Info */}
+        <div className="mt-16 max-w-4xl mx-auto">
+          <div className="bg-white rounded-2xl shadow-lg p-8">
+            <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+              How Credits Work
+            </h3>
+            <div className="grid md:grid-cols-3 gap-8">
+              <div className="text-center">
+                <div className="bg-indigo-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-2">Purchase Credits</h4>
+                <p className="text-sm text-gray-600">
+                  Choose a package and buy credits instantly
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="bg-green-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-2">Use Anytime</h4>
+                <p className="text-sm text-gray-600">
+                  Apply credits to any lead you want to purchase
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="bg-purple-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-2">No Expiry</h4>
+                <p className="text-sm text-gray-600">
+                  Credits remain valid as per package terms
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* FAQ Section */}
+        <div className="mt-12 max-w-3xl mx-auto">
+          <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+            Frequently Asked Questions
+          </h3>
+          <div className="space-y-4">
+            <details className="bg-white rounded-xl p-6 shadow-md">
+              <summary className="font-semibold text-gray-900 cursor-pointer">
+                Can I buy multiple packages?
+              </summary>
+              <p className="mt-3 text-gray-600 text-sm">
+                Yes! You can purchase multiple credit packages, and all credits will be added to your account balance.
+              </p>
+            </details>
+            <details className="bg-white rounded-xl p-6 shadow-md">
+              <summary className="font-semibold text-gray-900 cursor-pointer">
+                What happens if I don't use all my credits?
+              </summary>
+              <p className="mt-3 text-gray-600 text-sm">
+                Credits remain in your account according to the validity period of each package. Enterprise credits are valid for 1 year.
+              </p>
+            </details>
+            <details className="bg-white rounded-xl p-6 shadow-md">
+              <summary className="font-semibold text-gray-900 cursor-pointer">
+                How many credits does one lead cost?
+              </summary>
+              <p className="mt-3 text-gray-600 text-sm">
+                Each qualified lead costs 1 credit. You can review lead details before deciding to use your credits.
+              </p>
+            </details>
+          </div>
         </div>
       </div>
     </div>
   );
 };
 
-export default SubscriptionPage;
+export default PricingPage;

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@14.5.0?target=deno";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") as string, {
   apiVersion: "2023-10-16",
@@ -13,104 +13,141 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    // 1️⃣ Initialize Supabase client
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      {
-        global: {
-          headers: { Authorization: req.headers.get("Authorization")! },
-        },
-      }
+    console.log("🚀 Function started");
+
+    // Get the JWT token from Authorization header
+    const authHeader = req.headers.get("Authorization");
+    console.log("🔐 Auth header present:", !!authHeader);
+
+    if (!authHeader) {
+      throw new Error("Missing authorization header");
+    }
+
+    // Extract token (remove "Bearer " prefix if present)
+    const token = authHeader.replace("Bearer ", "").trim();
+    console.log("🎫 Token extracted (first 20 chars):", token.substring(0, 20));
+
+    // Initialize Supabase Admin client (for JWT verification)
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // 2️⃣ Get the logged-in user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Verify the JWT token and get user
+    console.log("👤 Verifying JWT...");
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+
+    if (userError) {
+      console.error("❌ JWT verification failed:", userError.message);
+      throw new Error(`Authentication failed: ${userError.message}`);
+    }
 
     if (!user) {
+      console.error("❌ No user found in JWT");
       throw new Error("No user found. Please log in.");
     }
 
-    // 3️⃣ Parse the request body to get priceId
-    const { priceId } = await req.json();
+    console.log("✅ User verified:", user.email);
+    console.log("🆔 User ID:", user.id);
+
+    // Get request body
+    const body = await req.json();
+    const { priceId } = body;
 
     if (!priceId) {
-      throw new Error("Price ID is required.");
+      throw new Error("Price ID is required");
     }
 
-    // 4️⃣ Check if the user already has a Stripe customer
-    const { data: customer } = await supabase
+    console.log("💳 Price ID:", priceId);
+
+    // Check for existing Stripe customer
+    const { data: existingCustomer, error: customerError } = await supabaseAdmin
       .from("customers")
       .select("stripe_customer_id")
       .eq("id", user.id)
-      .single();
+      .maybeSingle();
 
-    let customerId = customer?.stripe_customer_id;
+    if (customerError) {
+      console.error("❌ Customer lookup error:", customerError);
+    }
 
-    // 5️⃣ If the user doesn't have a Stripe customer, create one
+    let customerId = existingCustomer?.stripe_customer_id;
+
+    // Create customer if needed
     if (!customerId) {
+      console.log("🆕 Creating Stripe customer for:", user.email);
+      
       const stripeCustomer = await stripe.customers.create({
         email: user.email,
-        metadata: {
-          supabase_user_id: user.id,
-        },
+        metadata: { supabase_user_id: user.id },
       });
-      customerId = stripeCustomer.id;
 
-      // 6️⃣ Store the new Stripe customer ID in Supabase
-      await supabase.from("customers").insert({
-        id: user.id,
-        stripe_customer_id: customerId,
-      });
+      customerId = stripeCustomer.id;
+      console.log("✅ Stripe customer created:", customerId);
+
+      // Store in database
+      const { error: insertError } = await supabaseAdmin
+        .from("customers")
+        .insert({
+          id: user.id,
+          stripe_customer_id: customerId,
+        });
+
+      if (insertError) {
+        console.error("⚠️ Failed to store customer in DB:", insertError.message);
+        // Continue anyway since we have the Stripe customer ID
+      }
+    } else {
+      console.log("✅ Using existing Stripe customer:", customerId);
     }
 
-    // 7️⃣ Create a Stripe Checkout session
-    const session = await stripe.checkout.sessions.create({
-      customer: customerId,
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      mode: "subscription",
-      success_url: `${req.headers.get("origin")}/dashboard?success=true`,
-      cancel_url: `${req.headers.get("origin")}/pricing?canceled=true`,
-      metadata: {
-        user_id: user.id,
-      },
-    });
+    // Get origin for redirect URLs
+    const origin = req.headers.get("origin") || "http://localhost:3000";
 
-    // 8️⃣ Return the session URL
-    return new Response(JSON.stringify({ url: session.url }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+const session = await stripe.checkout.sessions.create({
+  customer: customerId,
+  line_items: [
+    {
+      price: priceId,
+      quantity: 1,
+    },
+  ],
+  mode: "payment",  
+  success_url: `${origin}/subscription/success?session_id={CHECKOUT_SESSION_ID}`,
+  cancel_url: `${origin}/subscription`,
+  metadata: { 
+    supabase_user_id: user.id,
+    price_id: priceId
+  },
+});
+    console.log("✅ Checkout session created:", session.id);
+    console.log("🔗 Checkout URL:", session.url);
+
+    return new Response(
+      JSON.stringify({ url: session.url }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      }
+    );
 
   } catch (error: any) {
-    // Log error for debugging
-    console.error("Error:", error.message);
+    console.error("❌ Error:", error.message);
+    console.error("📚 Error stack:", error.stack);
 
-    // Handle Stripe-specific errors
-    let errorMessage = "An error occurred while processing the request.";
-    if (error instanceof Stripe.errors.StripeError) {
-      errorMessage = "Stripe API error: " + error.message;
-    } else if (error instanceof Error) {
-      errorMessage = error.message;
-    }
-
-    // Return the error message to the client
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 400,
-    });
+    return new Response(
+      JSON.stringify({
+        error: error.message || "An error occurred",
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      }
+    );
   }
 });
