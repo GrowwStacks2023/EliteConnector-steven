@@ -9,42 +9,42 @@ import {
 import Swal from 'sweetalert2';
 
 // Layout
-import Header from '../EliteConnector-steven/src/components/Header';
-import Footer from '../EliteConnector-steven/src/components/Footer';
+import Header from './components/Header';
+import Footer from './components/Footer';
 
 // Auth
-import { AuthProvider, useAuth } from '../EliteConnector-steven/src/context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Pages
-import HomePage from '../EliteConnector-steven/src/pages/HomePage';
-import LoginPage from '../EliteConnector-steven/src/pages/LoginPage';
-import RegisterPage from '../EliteConnector-steven/src/pages/RegisterPage';
-import ForgotPasswordPage from '../EliteConnector-steven/src/pages/ForgotPasswordPage';
-import ResetPasswordPage from './src/pages/ResetPasswordPage';
-import LeadsDashboard from '../EliteConnector-steven/src/pages/LeadsDashboard';
-import ClientDashboard from '../EliteConnector-steven/src/pages/ClientDashboard';
-import MyPurchases from '../EliteConnector-steven/src/pages/MyPurchases';
-import ViewLead from '../EliteConnector-steven/src/pages/ViewLead';
-import AdminDashboard from './src/pages/AdminDashboard-Refactored';
-import SubmitLeadPage from '../EliteConnector-steven/src/pages/SubmitLeadPage';
-import PostProjectPage from '../EliteConnector-steven/src/pages/PostProjectPage';
-import ProfilePage from '../EliteConnector-steven/src/pages/ProfilePage';
-import LeadQuestionnairePage from '../EliteConnector-steven/src/pages/LeadQuestionnairePage';
-import SubscriptionPage from '../EliteConnector-steven/src/pages/SubscriptionPage';
-import CartPage from '../EliteConnector-steven/src/pages/CartPage';
-import PortfolioPage from '../EliteConnector-steven/src/pages/PortfolioPage';
-import SubscriptionSuccess from '../EliteConnector-steven/src/pages/SubscriptionSuccess';
-import ClientLandingPage from '../EliteConnector-steven/src/pages/ClientLandingPage';
+import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import LeadsDashboard from './pages/LeadsDashboard';
+import ClientDashboard from './pages/ClientDashboard';
+import MyPurchases from './pages/MyPurchases';
+import ViewLead from './pages/ViewLead';
+import AdminDashboard from './pages/AdminDashboard-Refactored';
+import SubmitLeadPage from './pages/SubmitLeadPage';
+import PostProjectPage from './pages/PostProjectPage';
+import ProfilePage from './pages/ProfilePage';
+import LeadQuestionnairePage from './pages/LeadQuestionnairePage';
+import SubscriptionPage from './pages/SubscriptionPage';
+import CartPage from './pages/CartPage';
+import PortfolioPage from './pages/PortfolioPage';
+import SubscriptionSuccess from './pages/SubscriptionSuccess';
+import ClientLandingPage from './pages/ClientLandingPage';
 
-// Services
+// Service
 import {
   reserveLead,
   releaseLead,
   releaseMultipleLeads
-} from './src/services/reservationService';
+} from './services/reservationService';
 
 // Types
-import { UserRole, Lead } from './types';
+import { UserRole, Lead } from '../types';
 
 /* -------------------------------------------------- */
 /* Loader */
