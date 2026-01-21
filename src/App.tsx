@@ -36,7 +36,7 @@ import PortfolioPage from './pages/PortfolioPage';
 import SubscriptionSuccess from './pages/SubscriptionSuccess';
 import ClientLandingPage from './pages/ClientLandingPage';
 
-// Services
+// Service
 import {
   reserveLead,
   releaseLead,
