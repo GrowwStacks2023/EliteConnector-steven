@@ -31,7 +31,7 @@ const PurchasedLeadCard: React.FC<PurchasedLeadCardProps> = ({ purchases }) => {
     <>
       <div className="mt-4 space-y-3">
         <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wider">
-          Interested Professionals ({purchases.length})
+          Interested Service Provider
         </h4>
         
         {purchases.map((purchase) => (

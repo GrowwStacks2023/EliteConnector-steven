@@ -40,7 +40,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
 
       const currentUser = JSON.parse(storedUser);
 
-      
+
       const queryPromise = supabase
         .from('client_jobs')
         .select('*')
@@ -80,7 +80,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
       setProjects(mappedProjects);
 
       const purchases = await fetchClientJobPurchases(currentUser.id);
-      
+
       setPurchasesByJob(purchases);
 
     } catch (err: any) {
@@ -125,7 +125,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
   };
 
   const getCategoryIcon = (category: TradeType) => {
-    switch(category) {
+    switch (category) {
       case TradeType.PLUMBER: return '🚿';
       case TradeType.ELECTRICIAN: return '⚡';
       case TradeType.CARPENTER: return '🔨';
@@ -157,8 +157,8 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
             <h1 className="text-4xl font-extrabold text-gray-900 brand-font">Hello, {user.fullName.split(' ')[0]}! 👋</h1>
             <p className="text-gray-500 mt-2 font-medium text-lg">Manage your posted projects</p>
           </div>
-          <Link 
-            to="/post-project" 
+          <Link
+            to="/post-project"
             className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-bold shadow-xl shadow-indigo-100 hover:shadow-2xl hover:scale-105 transition-all flex items-center"
           >
             <span className="text-2xl mr-2">+</span> Post a New Project
@@ -167,7 +167,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
 
         <div className="space-y-6">
           <h2 className="text-2xl font-bold text-gray-900 brand-font mb-6">My Projects</h2>
-          
+
           {projects.length > 0 ? (
             projects.map(project => {
               const purchaseCount = getPurchaseCount(project.id);
@@ -175,8 +175,8 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
               const projectPurchases = purchasesByJob.get(project.id) || [];
 
               return (
-                <div 
-                  key={project.id} 
+                <div
+                  key={project.id}
                   className="bg-white p-6 rounded-[2.5rem] shadow-sm border-2 border-transparent hover:border-gray-200 transition-all"
                 >
                   <div className="flex items-start justify-between mb-4">
@@ -187,11 +187,10 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="font-bold text-gray-900 text-lg">{project.title}</h3>
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                            project.is_active 
-                              ? 'bg-green-100 text-green-700' 
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${project.is_active
+                              ? 'bg-green-100 text-green-700'
                               : 'bg-gray-100 text-gray-500'
-                          }`}>
+                            }`}>
                             {project.is_active ? '✓ Active' : 'Inactive'}
                           </span>
                           {purchaseCount > 0 && (
@@ -218,15 +217,18 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
                         </div>
 
                         {/* View Interested Professionals Button */}
-                        {purchaseCount > 0 && (
-                          <button
-                            onClick={() => toggleProjectExpansion(project.id)}
-                            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-all flex items-center gap-2"
-                          >
-                            {isExpanded ? '▼' : '▶'} 
-                            {isExpanded ? 'Hide' : 'View'} Lead Purchased
-                          </button>
-                        )}
+                       <div className="flex items-center mt-4">
+  {purchaseCount > 0 && (
+    <button
+      onClick={() => toggleProjectExpansion(project.id)}
+      className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-all flex items-center gap-2"
+    >
+      {isExpanded ? '▼' : '▶'} 
+      {isExpanded ? 'Hide' : 'View'}
+    </button>
+  )}
+  <span className="ml-3 text-sm font-bold text-gray-700 uppercase tracking-wider">Purchased By (Service Provider)</span>
+</div>
                       </div>
                     </div>
                   </div>
@@ -243,8 +245,8 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
               <div className="text-6xl mb-6">📝</div>
               <h3 className="text-2xl font-bold text-gray-900 mb-2">No projects yet</h3>
               <p className="text-gray-500 mb-6">Post your first project to get started.</p>
-              <Link 
-                to="/post-project" 
+              <Link
+                to="/post-project"
                 className="inline-block px-8 py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all"
               >
                 Post Your First Project
