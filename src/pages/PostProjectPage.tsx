@@ -70,30 +70,46 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
     setUploadingImages(true);
 
     try {
-      const uploadedUrls: string[] = [];
-
+      // Validate files first
+      const validFiles: File[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-
+        
         if (!file.type.startsWith('image/')) {
           Swal.fire('Invalid File', `${file.name} is not an image file.`, 'error');
           continue;
         }
-
+        
         if (file.size > 5 * 1024 * 1024) {
           Swal.fire('File Too Large', `${file.name} exceeds 5MB limit.`, 'error');
           continue;
         }
+        
+        validFiles.push(file);
+      }
 
+      if (validFiles.length === 0) {
+        setUploadingImages(false);
+        return;
+      }
+
+      // Upload files in parallel with timeout
+      const uploadPromises = validFiles.map(async (file) => {
         const fileExt = file.name.split('.').pop();
         const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-        const { data, error } = await supabase.storage
+        const uploadPromise = supabase.storage
           .from('job-images')
           .upload(fileName, file, {
             cacheControl: '3600',
             upsert: false
           });
+
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Upload timeout')), 30000)
+        );
+
+        const { data, error } = await Promise.race([uploadPromise, timeoutPromise]) as any;
 
         if (error) throw error;
 
@@ -101,8 +117,12 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
           .from('job-images')
           .getPublicUrl(fileName);
 
-        uploadedUrls.push(publicUrl);
-      }
+        return publicUrl;
+      });
+
+      console.log('📤 Uploading', validFiles.length, 'images...');
+      const uploadedUrls = await Promise.all(uploadPromises);
+      console.log('✅ Upload complete');
 
       setFormData(prev => ({
         ...prev,
@@ -121,7 +141,7 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
 
     } catch (err: any) {
       console.error('❌ Error uploading images:', err);
-      Swal.fire('Upload Failed', err.message || 'Failed to upload images.', 'error');
+      Swal.fire('Upload Failed', err.message || 'Failed to upload images. Please try again.', 'error');
     } finally {
       setUploadingImages(false);
     }
@@ -136,9 +156,25 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (uploadingImages) {
+      Swal.fire('Please Wait', 'Images are still uploading...', 'info');
+      return;
+    }
+
     setLoading(true);
 
     try {
+      console.log('📝 Submitting project...');
+
+      // Validate session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        Swal.fire('Session Expired', 'Please log in again.', 'error');
+        navigate('/login');
+        return;
+      }
+
       const storedUser = localStorage.getItem('user');
       if (!storedUser) {
         Swal.fire('Error', 'Please log in again.', 'error');
@@ -148,7 +184,8 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
 
       const currentUser = JSON.parse(storedUser);
 
-      const { data, error } = await supabase
+      // Insert with timeout
+      const insertPromise = supabase
         .from('client_jobs')
         .insert({
           client_id: currentUser.id,
@@ -166,7 +203,15 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
         .select()
         .single();
 
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Request timeout')), 10000)
+      );
+
+      const { data, error } = await Promise.race([insertPromise, timeoutPromise]) as any;
+
       if (error) throw error;
+
+      console.log('✅ Project posted successfully');
 
       Swal.fire({
         title: 'Project Posted!',
@@ -215,9 +260,7 @@ const PostProjectPage: React.FC<PostProjectPageProps> = ({ user }) => {
     );
   }
 
-  
-
-  // Form Step (existing form code)
+  // Form Step
   return (
     <div className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 min-h-screen py-16 px-4">
       <div className="max-w-4xl mx-auto">
