@@ -29,29 +29,37 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    fetchProjects();
-  }, []);
-
-  const fetchProjects = async () => {
+  const loadProjects = React.useCallback(async () => {
     try {
       setLoading(true);
-      
+
       const storedUser = localStorage.getItem('user');
-      if (!storedUser) return;
+      if (!storedUser) {
+        return;
+      }
 
       const currentUser = JSON.parse(storedUser);
 
-      // Fetch jobs from Supabase
-      const { data, error } = await supabase
+      
+      const queryPromise = supabase
         .from('client_jobs')
         .select('*')
         .eq('client_id', currentUser.id)
         .order('created_at', { ascending: false });
 
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout')), 15000)
+      );
+
+      const { data, error } = await Promise.race([
+        queryPromise,
+        timeoutPromise
+      ]) as any;
+
+
       if (error) throw error;
 
-      // Map to ClientProject format
+
       const mappedProjects: ClientProject[] = (data || []).map(job => ({
         id: job.id,
         title: job.title,
@@ -71,17 +79,40 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
 
       setProjects(mappedProjects);
 
-      // Fetch all purchases for this client's jobs
       const purchases = await fetchClientJobPurchases(currentUser.id);
+      
       setPurchasesByJob(purchases);
 
     } catch (err: any) {
-      console.error('❌ Error fetching projects:', err);
-      Swal.fire('Error', 'Failed to load projects', 'error');
+      if (err.message === 'timeout') {
+        Swal.fire('Timeout', 'Connection timeout. Please refresh.', 'error');
+      } else {
+        Swal.fire('Error', err.message || 'Failed to load', 'error');
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
+
+  // Tab visibility listener
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadProjects();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [loadProjects]);
 
   const toggleProjectExpansion = (projectId: string) => {
     const newExpanded = new Set(expandedProjects);
@@ -99,8 +130,6 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
       case TradeType.ELECTRICIAN: return '⚡';
       case TradeType.CARPENTER: return '🔨';
       case TradeType.PAINTER: return '🎨';
-      // case TradeType.ROOFER: return '🏠';
-      // case TradeType.LANDSCAPER: return '🌳';
       default: return '🔧';
     }
   };
@@ -195,7 +224,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user }) => {
                             className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-all flex items-center gap-2"
                           >
                             {isExpanded ? '▼' : '▶'} 
-                            {isExpanded ? 'Hide' : 'View'} Interested Professionals
+                            {isExpanded ? 'Hide' : 'View'} Lead Purchased
                           </button>
                         )}
                       </div>
