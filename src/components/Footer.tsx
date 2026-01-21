@@ -32,7 +32,7 @@ const Footer: React.FC = () => {
             </div>
           </div>
 
-          {/* Navigation Columns */}
+          {/* Navigation Columns 123 */}
           <div>
             <h3 className="font-bold text-gray-900 mb-6 uppercase text-xs tracking-widest">Platform</h3>
             <ul className="space-y-4">
